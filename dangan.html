@@ -1,0 +1,2018 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>戮判城工作系统 - 档案台</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "SimSun", "宋体", serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      position: relative;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.15;
+      background-image:
+        radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.3) 0, transparent 3px),
+        radial-gradient(circle at 20px 30px, rgba(255, 255, 255, 0.25) 0, transparent 3px),
+        radial-gradient(circle at 40px 10px, rgba(255, 255, 255, 0.2) 0, transparent 3px),
+        radial-gradient(circle at 10px 40px, rgba(255, 255, 255, 0.2) 0, transparent 3px);
+      background-size: 80px 80px;
+      mix-blend-mode: screen;
+    }
+
+    .workspace {
+      position: relative;
+      z-index: 1;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      border-radius: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: none;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ws-tabs {
+      display: flex;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
+      padding: 0;
+      margin: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.25);
+      box-sizing: border-box;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .ws-tab {
+      flex: 1;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      border-radius: 0;
+      border: none;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: transparent;
+      cursor: pointer;
+      font-size: 16px;
+      letter-spacing: 0.18em;
+      text-decoration: none;
+      color: inherit;
+      overflow: hidden;
+      transition: flex 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.35s ease, padding 0.3s ease;
+    }
+
+    .ws-tab:last-child { border-right: none; }
+
+    .ws-tab[data-active="true"] {
+      background: rgba(125, 243, 255, 0.08);
+    }
+
+    .ws-tab[data-active="true"] .ws-tab-title {
+      color: rgba(125, 243, 255, 0.95);
+      text-shadow: 0 0 8px rgba(125, 243, 255, 0.25);
+    }
+
+    @font-face {
+      font-family: 'HuiwenMincho';
+      src: url('assets/fonts/Huiwen-mincho.otf') format('opentype'),
+           url('assets/fonts/Huiwen-mincho.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    .ws-tab-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      z-index: 2;
+      font-family: 'HuiwenMincho', "SimSun", "宋体", serif;
+      transition: left 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .ws-tab-desc {
+      position: absolute;
+      left: 140px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.06em;
+      line-height: 1.5;
+      opacity: 0;
+      max-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      transition: opacity 0.35s ease 0.08s, max-width 0.5s ease;
+    }
+
+    /* 有任意 tab 被悬停时，非悬停 tab 收缩消失 */
+    .ws-tabs:has(.ws-tab:hover) .ws-tab:not(:hover) {
+      flex: 0;
+      opacity: 0;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .ws-tab:hover .ws-tab-title {
+      left: 20px;
+      transform: translateX(0);
+    }
+
+    .ws-tab:hover .ws-tab-desc {
+      opacity: 1;
+      max-width: calc(100% - 160px);
+    }
+
+    .ws-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+    }
+
+    .ws-main {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 14px;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: auto;
+    }
+
+    .ws-side {
+      flex: 0 0 110px;
+      min-width: 0;
+      padding: 10px;
+      overflow: auto;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .ws-side-title {
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      margin-bottom: 10px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .ws-panel {
+      display: none;
+      font-size: 13px;
+      line-height: 1.75;
+      letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .ws-panel.active {
+      display: block;
+    }
+
+    .arch-lead {
+      margin: 0 auto 16px;
+      padding-bottom: 12px;
+      max-width: 560px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 12px;
+    }
+
+    .arch-case {
+      margin: 0 auto 22px;
+      padding-bottom: 18px;
+      max-width: 560px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .arch-case:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .arch-case-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      color: rgba(125, 243, 255, 0.95);
+      margin-bottom: 12px;
+    }
+
+    .arch-person {
+      margin-bottom: 16px;
+      padding-left: 8px;
+      border-left: 2px solid rgba(125, 243, 255, 0.25);
+    }
+
+    .arch-person:last-child {
+      margin-bottom: 0;
+    }
+
+    .arch-code {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.35em;
+      margin-bottom: 8px;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .arch-row {
+      display: grid;
+      grid-template-columns: 5.2em 1fr;
+      gap: 6px 12px;
+      margin: 4px 0;
+      align-items: baseline;
+    }
+
+    .arch-k {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.55);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .arch-row > span:last-child {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .arch-unknown {
+      color: rgba(255, 180, 120, 0.95);
+    }
+
+    .arch-note {
+      font-weight: 400;
+      opacity: 0.88;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+
+    .arch-evidence {
+      margin-top: 10px;
+    }
+
+    .arch-evidence-label {
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.65);
+      margin-bottom: 6px;
+      letter-spacing: 0.12em;
+    }
+
+    .evidence-inputs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .evidence-input {
+      flex: 1 1 0;
+      min-width: 80px;
+      max-width: 160px;
+      background: #5cb3cc;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      color: rgba(255, 255, 255, 0.95);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 4px;
+      outline: none;
+      letter-spacing: 0.06em;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .evidence-input:hover {
+      box-shadow: 0 0 8px rgba(92, 179, 204, 0.45);
+    }
+
+    .evidence-input.locked {
+      color: #000;
+      background: #5cb3cc;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .evidence-input.bounce {
+      animation: bounceBack 0.4s ease;
+    }
+
+    @keyframes bounceBack {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      50% { transform: translateX(6px); }
+      75% { transform: translateX(-3px); }
+      100% { transform: translateX(0); }
+    }
+
+    /* 物品栏 */
+    .item-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .item-slot {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .item-slot.filled {
+      border-color: rgba(125, 243, 255, 0.35);
+      background: rgba(125, 243, 255, 0.08);
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .item-slot.selected {
+      border-color: #41ae3c;
+      background: rgba(65, 174, 60, 0.12);
+      color: #41ae3c;
+      box-shadow: 0 0 10px rgba(65, 174, 60, 0.3);
+    }
+
+    .item-slot-tip {
+      position: absolute;
+      right: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      width: min(320px, 70vw);
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(0, 0, 0, 0.88);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+      line-height: 1.8;
+      letter-spacing: 0.06em;
+      display: none;
+      pointer-events: none;
+      text-align: left;
+    }
+
+    .item-slot-tip::after {
+      content: "";
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-width: 6px 0 6px 6px;
+      border-style: solid;
+      border-color: transparent transparent transparent rgba(125, 243, 255, 0.35);
+    }
+
+    .item-slot:hover .item-slot-tip {
+      display: block;
+    }
+
+    .item-slot.empty::before {
+      content: attr(data-index);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    .text-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      padding: 40px;
+    }
+
+    .text-overlay.active {
+      display: flex;
+    }
+
+    .text-box {
+      width: min(720px, 90vw);
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 32px 36px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(10, 12, 22, 0.96);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 15px;
+      line-height: 2;
+      letter-spacing: 0.06em;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85);
+    }
+
+    .text-box p {
+      margin-bottom: 16px;
+      text-indent: 2em;
+    }
+
+    .text-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    .ws-placeholder {
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.1em;
+      line-height: 2;
+    }
+
+    .toast-msg {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 200;
+      white-space: nowrap;
+      background: rgba(0, 0, 0, 0.85);
+      color: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .toast-msg.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast-msg.success {
+      background: rgba(40, 167, 69, 0.92);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
+    }
+
+    .toast-msg.error {
+      background: rgba(220, 53, 69, 0.92);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(220, 53, 69, 0.3);
+    }
+
+    .ws-chat {
+      flex: 0 0 260px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    /* ===== 鬼才信聊天栏 ===== */
+    .chat-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      position: relative;
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.25);
+      text-align: center;
+    }
+
+    .chat-title {
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 700;
+    }
+
+    .chat-header-left, .chat-header-right {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .chat-header-left { left: 8px; }
+    .chat-header-right { right: 8px; }
+
+    .chat-main {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-list-panel, .chat-msg-panel {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+    }
+
+    .chat-screen[data-view="list"] .chat-list-panel { display: block; }
+    .chat-screen[data-view="list"] .chat-msg-panel { display: none; }
+    .chat-screen[data-view="chat"] .chat-list-panel { display: none; }
+    .chat-screen[data-view="chat"] .chat-msg-panel { display: flex; flex-direction: column; }
+
+    .chat-contact-list {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chat-contact {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .chat-contact:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .chat-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(125, 243, 255, 0.12);
+      border: 1px solid rgba(125, 243, 255, 0.3);
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.92);
+      font-weight: 800;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .chat-contact-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-contact-name {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: 0.08em;
+    }
+
+    .chat-contact-sub {
+      margin-top: 2px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-unread-badge {
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: #ff3b30;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .chat-msg-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-msg-body {
+      flex: 1;
+      padding: 8px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-msg {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chat-msg.them { align-items: flex-start; }
+    .chat-msg.me { align-items: flex-end; }
+
+    .chat-bubble {
+      max-width: 85%;
+      width: fit-content;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+      word-break: break-word;
+    }
+
+    .chat-bubble.them {
+      background: rgba(255, 255, 255, 0.9);
+      color: #111;
+    }
+
+    .chat-bubble.me {
+      background: #95EC69;
+      color: #111;
+    }
+
+    .chat-bubble.aside {
+      align-self: center;
+      max-width: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 11px;
+    }
+
+    .chat-ts {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .chat-actions {
+      flex-shrink: 0;
+      padding: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .chat-composer {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .chat-composer-input {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .chat-send-btn {
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(125, 243, 255, 0.12);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+    }
+
+    .chat-send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    /* ===== CUSTOM SCROLLBAR ===== */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #000;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #7fffd4;
+      border-radius: 5px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #7fffd4;
+    }
+    ::-webkit-scrollbar-button {
+      background: #7fffd4;
+    }
+    ::-webkit-scrollbar-corner {
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="workspace" id="workspace" aria-label="戮判城工作台">
+    <div class="ws-tabs">
+      <a class="ws-tab" href="dangan.html" data-active="true">
+        <span class="ws-tab-title">【档案台】</span>
+        <span class="ws-tab-desc">这里是死者的死法。但我并不知道他们是谁，也许应该到业镜台找到他们的死亡时的证物。</span>
+      </a>
+      <a class="ws-tab" href="yejing.html">
+        <span class="ws-tab-title">【业镜台】</span>
+        <span class="ws-tab-desc">这里会有死者死亡时，身上最可疑的物品。每件物品都有死者的供词。可以根据供词找到物品的主人，记录在档案中。</span>
+      </a>
+      <a class="ws-tab" href="lunhui.html">
+        <span class="ws-tab-title">【轮回轨】</span>
+        <span class="ws-tab-desc">裁决最终进行的地方。我需要将什么东西按顺序输入，才能启动轮回轨，让亡魂投生六道。</span>
+      </a>
+    </div>
+    <div class="ws-body">
+      <aside class="ws-chat" id="chatSidebar" aria-label="鬼才信">
+        <div class="chat-screen" id="chatScreen" data-view="list">
+          <div class="chat-header">
+            <div class="chat-header-left" id="chatHeaderLeft">★</div>
+            <div class="chat-title" id="chatHeaderTitle">鬼才信</div>
+            <div class="chat-header-right" id="chatHeaderRight">＋</div>
+          </div>
+          <div class="chat-main">
+            <div class="chat-list-panel" id="chatListPanel">
+              <div class="chat-contact-list" id="chatContactList">
+                <div class="chat-contact" data-key="niu" id="cNiu">
+                  <div class="chat-avatar">牛</div>
+                  <div class="chat-contact-info">
+                    <div class="chat-contact-name">牛大人</div>
+                    <div class="chat-contact-sub">王助理，下五子棋吗？</div>
+                  </div>
+                  <div class="chat-unread-badge" id="niuUnread" style="display:none;"></div>
+                </div>
+                <div class="chat-contact" data-key="ma" id="cMa">
+                  <div class="chat-avatar" style="background:rgba(255,139,246,0.07);border-color:rgba(255,139,246,0.25);">旻</div>
+                  <div class="chat-contact-info">
+                    <div class="chat-contact-name">城主</div>
+                    <div class="chat-contact-sub">（暂无新消息）</div>
+                  </div>
+                  <div id="maUnreadSlot" style="width:10px;height:10px;"></div>
+                </div>
+                <div class="chat-contact" data-key="group" id="cGroup" style="display:none;">
+                  <div class="chat-avatar" style="background:rgba(125,243,255,0.07);border-color:rgba(125,243,255,0.25);">群</div>
+                  <div class="chat-contact-info">
+                    <div class="chat-contact-name">牛马王奋斗群</div>
+                    <div class="chat-contact-sub">（暂无新消息）</div>
+                  </div>
+                  <div id="groupUnreadSlot" style="width:10px;height:10px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-msg-panel" id="chatMsgPanel">
+              <div class="chat-msg-body" id="chatMsgBody"></div>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <div class="chat-composer">
+              <input class="chat-composer-input" id="chatInput" type="text" readonly placeholder="请输入内容" value="" />
+              <button class="chat-send-btn" id="chatSendBtn" type="button" disabled>发送</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="ws-main">
+        <div class="arch-lead">当前地点：<strong>【档案台】</strong></div>
+
+        <div class="ws-panel active" aria-label="档案内容">
+          <section class="arch-case">
+            <h2 class="arch-case-title">【惊恐】</h2>
+            <article class="arch-person">
+              <div class="arch-code">甲</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九五三年十月初八（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九九年正月十七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>惊恐</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="arch-case">
+            <h2 class="arch-case-title">【窒息】</h2>
+            <article class="arch-person">
+              <div class="arch-code">乙</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九七八年三月初七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九二年正月十六（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>窒息</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="arch-case">
+            <h2 class="arch-case-title">【中枪】</h2>
+            <article class="arch-person">
+              <div class="arch-code">丙</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九三六年正月十六（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九九年正月十七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>枪击</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+            <article class="arch-person">
+              <div class="arch-code">丁</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九八五年八月初五（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九二年正月十七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>枪击</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="arch-case">
+            <h2 class="arch-case-title">【撞击】</h2>
+            <article class="arch-person">
+              <div class="arch-code">戊</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span class="arch-unknown">一九七二年正月十六（农历）<span class="arch-note">（村民身亡、井事之前？）</span></span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span class="arch-unknown">芸离省微楚市？？？</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span class="arch-unknown">一九九二年正月十六（农历）？？？</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>头部撞击</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="arch-case">
+            <h2 class="arch-case-title">【中毒】</h2>
+            <article class="arch-person">
+              <div class="arch-code">己</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九六五年十一月十三（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>丁汌省兑昌市望峡县</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九二年正月十七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>农药中毒</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+            <article class="arch-person">
+              <div class="arch-code">庚</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九六零年八月廿二（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九二年正月十六（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>蛇毒</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="arch-case">
+            <h2 class="arch-case-title">【利器】</h2>
+            <article class="arch-person">
+              <div class="arch-code">辛</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九七七年二月十九（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九二年正月十七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>利器刺穿太阳穴</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <section class="arch-case">
+            <h2 class="arch-case-title">【兽袭】</h2>
+            <article class="arch-person">
+              <div class="arch-code">壬</div>
+              <div class="arch-fields">
+                <div class="arch-row"><span class="arch-k">生日</span><span>一九五零年六月廿五（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">生地</span><span>芸离省建宁市</span></div>
+                <div class="arch-row"><span class="arch-k">卒日</span><span>一九九二年正月十七（农历）</span></div>
+                <div class="arch-row"><span class="arch-k">卒地</span><span>宁平省余川市石泉村</span></div>
+                <div class="arch-row"><span class="arch-k">卒因</span><span>恶犬袭击</span></div>
+              </div>
+              <div class="arch-evidence">
+                <div class="arch-evidence-label">【证物】</div>
+                <div class="evidence-inputs">
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                  <input type="text" class="evidence-input" />
+                </div>
+              </div>
+            </article>
+          </section>
+        </div>
+      </div>
+      <aside class="ws-side" aria-label="物品栏">
+        <div class="ws-side-title">物品栏</div>
+        <div class="item-grid" id="itemGrid">
+          <div class="item-slot empty" data-index="1"></div>
+          <div class="item-slot empty" data-index="2"></div>
+          <div class="item-slot empty" data-index="3"></div>
+          <div class="item-slot empty" data-index="4"></div>
+          <div class="item-slot empty" data-index="5"></div>
+          <div class="item-slot empty" data-index="6"></div>
+          <div class="item-slot empty" data-index="7"></div>
+          <div class="item-slot empty" data-index="8"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="text-overlay" id="textOverlay">
+    <div class="text-box" id="textBox"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'lpc_game_state';
+
+    const EVIDENCE_ANSWERS = {
+      '甲': ['棉袄', '钥匙', '纸币'],
+      '乙': ['《伊索寓言》', '馒头', '方向盘'],
+      '丙': ['盐巴和冰镐', '黑火药'],
+      '丁': ['狗牙吊坠', '钉子'],
+      '戊': ['电话圈发绳', '碎手镯', '红包'],
+      '己': ['白糖', '药粉', '梳子'],
+      '庚': ['收据', '蛇胆', '干馒头'],
+      '辛': ['鸡毛', '哨子', '棉鞋'],
+      '壬': ['钢剑', '护身符', '铁锹']
+    };
+
+    const ITEM_DATA = {
+      '《伊索寓言》': {
+        paragraphs: [
+          '我不喜欢读书，读书有什么用呢？反正我永远也不会走出去。这条姓方的村子才是我的家。我爹说，等我长大就给我买个媳妇，暖暖和和地过日子。',
+          '这本书是我娘小时候给我读的，她的声音很好听，比张老师还好听。娘坐在很大的窗子前，我坐在会摇的凳子上……五岁之前很多事我都不记得，就只记得这个。',
+          '只是五岁那年生过病以后，她再也不给我读了。什么窗子、会摇的凳子，我也没有在我家见过。',
+          '这本书里，我有个问题一直不明白，就去问我娘。我问过她为什么蛇要咬自己的救命恩人，她说没听过、还说，农夫是该死，一定是惹了谁，才会放蛇咬死他。'
+        ],
+        highlights: []
+      },
+      '棉袄': {
+        paragraphs: [
+          '外面，冷。娘，死。穿娘衣服，爹高兴。',
+          '脚冷。姐姐，指路，她家。有死人，死蛇。',
+          '死人鞋子，最暖和。'
+        ],
+        highlights: ['穿娘衣服，爹高兴']
+      },
+      '哨子': {
+        paragraphs: [
+          '屋子黑。狗洞，爹娘不知，小黑知。',
+          '路过小孩，不要的。小黑给我。',
+          '吹，小黑来。好朋友。'
+        ],
+        highlights: ['小黑']
+      },
+      '铁锹-A': {
+        displayName: '铁锹',
+        paragraphs: [
+          '“死了一个女娃，我和村长把她埋了。她的父母都自杀了。我们也不希望她是同样的结局，她死得太惨了。”',
+          '“我和村长猜测，她的父母应该不希望她跟他们埋在一起吧。于是我找了个安静的山坡，村长拿上锄头和铁锹，天还没亮的时候我们两个就把她埋了。如果让村民看见她惨死，我无法向他们交代。”',
+          '“我没有料到，这个山坡竟然有野狗出没。这些畜生发了疯一样冲上来，撕咬我全身的肉！而那该死的方永强，他竟然丢下我躲在一旁！我被咬中了咽喉……我王敬慈竟然死在了畜生手里……”'
+        ],
+        highlights: ['她的父母都自杀了', '王敬慈', '方永强']
+      },
+      '狗牙吊坠': {
+        displayName: '狗牙吊坠',
+        paragraphs: [
+          '您是我见过，第二个听得懂狗说话的人，青天大老爷。',
+          '这颗牙其实是我自己的。很久之前，我被村里其他看门狗给揍了，他们说我是没有主人的狗。我最锋利的牙齿被他们打掉了。',
+          '她帮我把断掉的牙齿用绳子绑起来——那看起来像她用来绑头发的头绳。她说，她反正也用不上，就给我了。',
+          '她住的地方就在猪窝旁边，我经常听见她的父母叫她来男，但我不识字。她房间的大门常年，她只能靠墙边的狗洞看到阳光。她对外面的世界知之甚少，甚至比不过一条丧家之犬。',
+          '她能听懂我的话，反而人类的话不怎么擅长。我就把外面发生的事情告诉她，把有趣的东西带给她。直到我自己的孩子出生后，我才意识到，她是我养育的第一个孩子。'
+        ],
+        highlights: ['来男']
+      },
+      '狗牙吊坠': {
+        displayName: '狗牙吊坠',
+        paragraphs: [
+          '“您是我见过，第二个听得懂狗说话的人，青天大老爷。”',
+          '“这颗牙其实是我自己的。很久之前，我被村里其他看门狗给揍了，他们说我是没有主人的狗。我最锋利的牙齿被他们打掉了。”',
+          '“她帮我把断掉的牙齿用绳子绑起来——那看起来像她用来绑头发的头绳。她说，她反正也用不上，就给我了。”',
+          '“她住的地方就在猪窝旁边，我经常听见她的父母叫她来男，但我不识字。她房间的大门常年，她只能靠墙边的狗洞看到阳光。她对外面的世界知之甚少，甚至比不过一条丧家之犬。”',
+          '“她能听懂我的话，反而人类的话不怎么擅长。我就把外面发生的事情告诉她，把有趣的东西带给她。直到我自己的孩子出生后，我才意识到，她是我养育的第一个孩子。”'
+        ],
+        highlights: ['来男', '第二个听懂', '狗']
+      },
+      '碎手镯': {
+        displayName: '碎手镯',
+        paragraphs: [
+          '她是怎么到这个村子里来的？这两年地狱般的生活，她也许都快要忘了。',
+          '父母说她没用，但他们不知道，整条街都归她管。那天她在小妹小弟的簇拥下庆祝完17岁生日，甜腻的奶油还涂在脸上，却遭到了隔壁街帮派的偷袭。所有人都没有防备，她不知道被谁打了一棍，醒来就来到了这里。',
+          '男人把她抱到炕上，门口两张苍老的脸恬不知耻地窥探。',
+          '那个人身上的气味很难闻，像是血液里混着粪便的味道。头顶留下来的血液，浓稠得像冷藏了很久的猪油。',
+          '“我知道你不适应，”男人的母亲端着早餐进来，“但你只能接受了，这是你命里要给他当老婆！”',
+          '老妇从衣服里摸出一个手镯，不顾她的反抗，推进她的手腕。',
+          '“你看，这是他给你寻的礼物，喜欢不？”',
+          '寻？',
+          '其实是捡的。两年前的中元节，在村长家的井里。'
+        ],
+        highlights: ['两年前的中元节，在村长家的井里'],
+        unlockData: {
+          password: '19900803',
+          paragraphs: [
+            '“那晚张舜华叫我出去给孩子们缝校服。等我到了她宿舍的时候，她说，今晚他们慈善基金会的车会来送图书，这次来了两辆车，被拐来石泉村且还活着的，还剩四个姑娘。一辆车里藏四个人容易被发现，她让我藏到另外一辆车里。”',
+            '“我相信她。我立刻就上了车。”',
+            '“上车前，我路过井边的时候，在冰面上滑了一跤，手镯被磕碎了，我手忙脚乱地把它们捡起来。”',
+            '“车子远离了这片村庄。离开的这条路我一共尝试了三次，最远走到了那片杨树林。我曾经用半条命也走不完的路，如今只是在车窗晃过，在我的视线里停留不超过五秒。”',
+            '“出去以后，我要先找到我的父母，即便他们不怎么爱我，但我想这些天他们也并不好过。和父母待几天，张老师应该也差不多出来了，她要带我认识几个在胜振市做生意的朋友，我这样活泼好动的人适合跟着他们混。”',
+            '“我想未来再辛苦，也不会比现在差了。”',
+            '“一声尖利的哭声打断了我的思路。我没想到还有个小孩也躲在车上。车里开着暖气，他睡得很沉，不知道开出了村庄多久他才醒。他一醒，整个人就开始发疯，嘴里喊着“别带我走”。我摁不住他，他甚至探出身子去抢司机的方向盘。山路本就曲折，他这一抢，车子就失了控。”',
+            '“我死的时候还是漫漫长夜，也不知道离天光破晓还有多久。也许就差那么一点点，天就亮了。”'
+          ],
+          highlights: [
+            '我路过井边的时候，在冰面上滑了一跤，手镯被磕碎了',
+            '张舜华',
+            '我没想到还有个小孩也躲在车上',
+            '他甚至探出身子去抢司机的方向盘'
+          ]
+        }
+      },
+      '红包': {
+        displayName: '红包',
+        paragraphs: [
+          '“过年前我生下了一个死婴。怀孕的时候，王神婆说是男孩，屠户一家很高兴，给了我一个红包。他们心里很清楚，给了我也根本没有机会用。”',
+          '“生产时我受尽折磨，若我在那时候死了，就不用下地狱了。但那时候我想，如果我生下了这个男孩，这个世界也许又会多一个像我这样的受害者。”',
+          '“幸好，他在睁眼见到这个世界前就停止了呼吸。屠户一家差点杀了我，王神婆拦住了他们，说要是我死了，他们的钱就打水漂了。”'
+        ],
+        highlights: []
+      },
+      '钢剑': {
+        displayName: '钢剑',
+        paragraphs: [
+          '“比起桃木剑，我更喜欢用钢剑。它用途可多了，可以杀公鸡取血。公鸡的血是至阳之物，任何邪物接触都会现原形。自从那个姓张的老师来了，村子里就不太平。要疯的疯，要逃的逃，也不知道从外面带了什么脏东西进来。”',
+          '“我老太婆有点本事，一眼就能分出对面是人是鬼。我从来没有错杀过。”',
+          '“……应该没有。”'
+        ],
+        highlights: ['姓张的老师']
+      },
+      '黑火药': {
+        displayName: '黑火药',
+        paragraphs: [
+          '“青天大老爷，这是我自己做的，平时也就用来打打猎，我从来没有拿它杀过人啊！”',
+          '“是张舜华进我家偷东西，还拿它杀了我！她竟然还是老师！平时教书育人斯斯文文的，杀起人来眼睛都不眨！我本来都不计较她进我家偷东西了，我拿她当儿媳妇疼，她却以为我要干什么，把我的枪抢走了！”',
+          '“你看她那把年纪还没个男人，我好心好意要给她个家有什么错？我儿子是有过女人，但这不跟我一样，更会疼人吗？我只是跟她说了点话，什么也没做。她凭什么杀我！”',
+          '“不过……她很快就会为此付出代价……临死前我儿子赶到了，他答应我……会把她绑起来……明天在我的葬礼上，石泉村的所有人，一人一把火，将她活活烧死！”'
+        ],
+        highlights: []
+      },
+      '钉子': {
+        displayName: '钉子',
+        paragraphs: [
+          '“我的脚掌里竟然扎了钉子？村子有遗落的钉子很正常，可能是那时我已经忘记了疼痛吧。”',
+          '“晚上我听见一声男人的尖叫。等我回到那里的时候，厅里死了一男一女，她不见了。”',
+          '“我在村子里找了好一会儿，突然听见公鸡叫了一声——那不是报晓，而是惨叫。”',
+          '“有个女人突然出现在我身后，她全身透明。她举起手指向一个方向。我相信了她，带着我的孩子们去了那个山坡。熟悉的气味混杂在血腥味里，还有死亡的气息。”',
+          '“也许在我赶路的时候脚上就不小心扎了钉子。畜生也有愤怒的，也会因此忘却疼痛。我扑过去，咬断了老太婆的脖子，我帮她报了仇。”',
+          '“我看见老太婆睁着眼停止了呼吸，突然几声巨响划破夜空。我的孩子们一个个地倒在了地上，最后我也倒下了。我们的血液流进泥土里，像他们刚出生的时候那样……”',
+          '“我只怕我的孩子们会痛……我永远爱我的所有孩子。”'
+        ],
+        highlights: ['咬断了老太婆的脖子']
+      },
+      '???': {
+        displayName: '???',
+        paragraphs: ['只是一个碗，好像没什么用。'],
+        highlights: []
+      },
+      '??': {
+        displayName: '??',
+        paragraphs: ['只是一只鸡，好像没什么用。'],
+        highlights: []
+      },
+      '鸡毛': {
+        displayName: '鸡毛',
+        paragraphs: [
+          '“姐姐，不见。找。”',
+          '“有鸡，好玩！……被发现，尖叫。”',
+          '“老太婆，杀鸡，泼血！臭！看不见！痛！'
+        ],
+        highlights: []
+      },
+      '梳子': {
+        displayName: '梳子',
+        paragraphs: [
+          '“来楠脑子坏了，但能嫁人，也算是我家孩子。”',
+          '“以前我们怕她丢人，把她在屋子里关了很多年。我拿钥匙解开她的镣铐，让她帮我抬她娘的尸体去埋了。我去找个草席的功夫，这死丫头不见了。”'
+        ],
+        highlights: ['来楠', '让她帮我抬她娘的尸体去埋了']
+      },
+      '诱蛇神药': {
+        displayName: '诱蛇神药',
+        paragraphs: [
+          '“我们地里最近闹老鼠，就找王神婆要了点药粉，招点蛇来吃老鼠。”',
+          '“有毒没毒我们庄稼人一眼就能看出来，能被毒死的，肯定是把那头惹急了，那也是活该。”'
+        ],
+        highlights: []
+      },
+      '盐巴和冰镐': {
+        displayName: '盐巴和冰镐',
+        paragraphs: [
+          '“跟王神婆处理完那田富家姑娘的尸体以后，回到家已经天亮了。我睡不着，想起咱家和广才家中间的那口井的井盖被冻了个严实，这几天打别人家的井也怪不好意思的，就拿着盐巴和冰镐，又烧了点热水出去了。”',
+          '“这井盖沿的冰刚化开，我一拿起盖子的时候，就有什么东西叮叮咚咚地掉进井里。我还发现井边有几块玉镯子的碎片，颜色雪白，跟雪地几乎融为一体。”',
+          '“我天生就是个劳碌的命，根本闲不下来。没别的事干，我就去学校看看孩子们。”'
+        ],
+        highlights: ['跟王神婆处理完那田富家姑娘的尸体', '咱家和广才家中间的那口井', '井边有几块玉镯子的碎片']
+      },
+      '收据': {
+        displayName: '收据',
+        paragraphs: [
+          '“在王神婆那里买了老婆，我拿到一张收据，‘那边’也有一张，人都认得的。我平时都放在内裤的口袋里。要是人跑了，给村长看，铁定能抓回来。”',
+          '“要不是那小子坏事，就算那贱人坐车跑了，到了县城也跑不远！现在人死了，老子什么都没了！她死就算了，还害死了我儿子！”'
+        ],
+        highlights: []
+      },
+      '干馒头': {
+        displayName: '干馒头',
+        paragraphs: [
+          '“这是我给她带的。村里有人说她在逃跑的路上死了，我就给她带了点祭品。再如何也是夫妻一场，希望她一路走好。”',
+          '“她走的那天晚上，我没有让她吃饭。过路的乡亲一到村子里报消息，我就过去了。我带了五个馒头，和一捆香。但是我没有看到她的尸体，说是掉进河里被冲走了。”',
+          '“那场车祸里司机也死了，只有方田富家的儿子活了下来。他被卡在驾驶室，爹妈也还没来。我使劲全身力气，也没有将他抱出来。多么可怜的一个男娃，都长到8岁了，可我们家的连眼睛都没睁……我看他哭个不停，就好心劝他吃点东西。”',
+          '“这天晚上我忙了好久，回到家里倒头就睡了，兜里的馒头还没有掏出来。”'
+        ],
+        highlights: []
+      },
+      '白糖': {
+        displayName: '白糖',
+        paragraphs: [
+          '“没了儿子，我们都准备死。”',
+          '“我用开水兑了两碗农药，还加了点白糖。她喝下了我给她的那碗，说农药苦。我又给她吃了点白糖。她吃完还是说苦，我说你见到儿子嘴要甜点，大家都高高兴兴地在地下团聚。”',
+          '“我们约好的是她先死，然后我帮她换上新的袄子，再陪她一起死。那件袄子还是为了过年打的，用了不少棉花。要是来顺还在，还能留给他娶老婆。”',
+          '“我是骗她的。她的那碗只有农药，我的这碗只有白糖。既然把苦留给了她，我也不能浪费这最后一点甜。”'
+        ],
+        highlights: ['袄子', '来顺', '她的那碗只有农药，我的这碗只有白糖']
+      },
+      '电话圈发绳': {
+        displayName: '电话圈发绳',
+        paragraphs: [
+          '“以前我家里很多，来到这里以后，只有大红色的头绳。”',
+          '“那唯一的一根大红色头绳，我用来上吊了。但张舜华冲过来把它剪断了，她把自己头上的发圈给了我，像屠户的母亲一样，和蔼可亲地把它套在我的手上。”',
+          '“她是这里的老师，我不觉得她会帮我。”'
+        ],
+        highlights: []
+      },
+      '馒头': {
+        displayName: '馒头',
+        paragraphs: [
+          '“我不喜欢吃馒头……”',
+          '“可是广才叔说，受了重伤的人要立刻大口大口吃东西，才不会被阎王收走……”',
+          '“馒头又冷又硬，还有一些猪棚的味道。我以为我乖乖地吃下就能好，我为什么会到这里来……”'
+        ],
+        highlights: ['广才叔']
+      },
+      '方向盘': {
+        displayName: '方向盘',
+        paragraphs: [
+          '“我怎么可能会开车呢？我只是不想离开石泉村而已，怎么会有这个东西在我手上！”',
+          '“一定是车祸的时候，不小心掉在我身上的！我记得车子翻了几个滚，那女的都被甩下了山崖！”',
+          '“这是张老师学校的车……我不知道为什么张老师不在上面……反而是广才叔家的媳妇……”'
+        ],
+        highlights: ['广才叔家的媳妇']
+      },
+      '一碗水': {
+        displayName: '一碗水',
+        paragraphs: [
+          '马面给你端上一碗水。',
+          '“这是在村长和屠户家中间那口井打的水。”',
+          '“哦我们不是鬼吗，怎么还能碰物质界的东西呢？”',
+          '你接过这碗水，面带微笑地喝下去，回味了一下，“嗯——果然有毒啊！”',
+          '你直直地倒下去，马面连忙扶起你。',
+          '你：“有点拉肚子，先上个厕所。”',
+          '马面看着你远去的背影，他似乎不太理解“拉肚子”是什么意思。',
+          '“也许是把肚子拉长，这样能试到更多的毒。”牛头解释道，“就像咱们把眼珠子抠出来，就能看到自己的后背那样。”',
+          '“原来是这样，王助理真的很敬业啊。城主早就该让她转正了。”'
+        ],
+        highlights: []
+      },
+      '蛇胆': {
+        displayName: '蛇胆',
+        paragraphs: [
+          '“他妈的哪来的蛇！我好端端睡着，被窝里冒出一条毒蛇，等我反应过来就被咬了好几口。我知道这种蛇可以用蛇胆解毒，我抓住它，被它咬着下巴也要抠开它的蛇胆！”',
+          '“我多想活下来。蛇胆就在我嘴边，可我的手突然僵住。”',
+          '“我比蛇毒就慢了一步，差一点，我就能活下来了。”'
+        ],
+        highlights: []
+      },
+      '纸币': {
+        displayName: '纸币',
+        paragraphs: [
+          '“鬼来找我了……这里不能待了……”',
+          '“她卖她过来的时候给了一百块，放在我的枕头下面，我一直没告诉她。这些钱够我离开这里。”',
+          '“她不是死透了吗……”',
+          '“她竟然……她竟然穿着死时的衣服……”',
+          '“还对着我笑……”'
+        ],
+        highlights: []
+      },
+      '棉鞋': {
+        displayName: '棉鞋',
+        paragraphs: [
+          '“外面，冷。娘，死。穿娘衣服，爹高兴。”',
+          '“脚冷。姐姐，指路，她家。有死人，死蛇。”',
+          '“死人鞋子，最暖和。”'
+        ],
+        highlights: ['穿娘衣服，爹高兴', '有死人，死蛇']
+      },
+      '钥匙': {
+        displayName: '钥匙',
+        paragraphs: [
+          '“来楠脑子坏了，但能嫁人，也算是我家孩子。”',
+          '“以前我们怕她丢人，把她在屋子里关了很多年。我拿钥匙解开她的镣铐，让她帮我抬她娘的尸体去埋了。我去找个草席的功夫，这死丫头不见了。”'
+        ],
+        highlights: ['来楠', '让她帮我抬她娘的尸体去埋了']
+      },
+      '护身符': {
+        displayName: '护身符',
+        paragraphs: [
+          '“我的亲生父母为我求的，我相信这么多年的运气，都是来源于它。”',
+          '“我来到这里，本来也是养大当别人老婆的命。但我偏偏能看见一些东西，被上一代神婆收为徒弟。久而久之，所有人都有求于我，我说什么他们信什么。”',
+          '“不知道哪一天起，我不再是被卖来卖去的东西。村长让我来对接村里的买卖事宜，谁家要老婆还是孩子，都报到我这里。每隔一段时间，我就可以坐村长的车出去看货。我比他们所有人都自由，还赚了一笔又一笔。”',
+          '“这里很好，众人愚昧，与世隔绝，破四旧的风都吹不进来。”',
+          '“在我们这里，只有鬼，没有神。只有臣服，没有敬畏。”'
+        ],
+        highlights: []
+      }
+    };
+
+    let selectedItem = null;
+
+    function showToast(message, type) {
+      const toast = document.getElementById('toastMsg');
+      toast.textContent = message;
+      toast.className = 'toast-msg ' + (type || '');
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    function getState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+      return { inventory: [], inventoryMeta: {}, evidence: {}, locked: {}, chatState: null };
+    }
+
+    function saveState(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function checkLetterNotification(state) {
+      let count = 0;
+      if (state.evidenceLocked) {
+        for (const code in state.evidenceLocked) {
+          for (const slot of state.evidenceLocked[code]) {
+            if (slot) count++;
+          }
+        }
+      }
+      const level = Math.floor(count / 5);
+      if (level > 0 && level <= 5) {
+        if (!state.letterNotified) state.letterNotified = {};
+        if (!state.letterNotified[level]) {
+          state.letterNotified[level] = true;
+          saveState(state);
+          showToast('你有新的信件待查收');
+        }
+      }
+    }
+
+    function renderTooltipHTML(itemKey) {
+      const data = ITEM_DATA[itemKey];
+      if (!data) return '';
+      const state = getState();
+      let allParagraphs = data.paragraphs || [];
+      let allHighlights = data.highlights || [];
+      if (data.unlockData && state.unlocked && state.unlocked[itemKey]) {
+        allParagraphs = allParagraphs.concat(data.unlockData.paragraphs);
+        allHighlights = allHighlights.concat(data.unlockData.highlights || []);
+      }
+      return allParagraphs.map((p, i) => {
+        let prefix = i === 0 ? '【' : '';
+        let suffix = i === allParagraphs.length - 1 ? '】' : '';
+        let text = prefix + '「' + p + '」' + suffix;
+        return '<p>' + applyHighlights(text, allHighlights) + '</p>';
+      }).join('');
+    }
+
+    function renderSlotTooltipHTML(itemKey) {
+      const data = ITEM_DATA[itemKey];
+      if (!data) return '';
+      const state = getState();
+      let allParagraphs = data.paragraphs || [];
+      let allHighlights = data.highlights || [];
+      if (data.unlockData && state.unlocked && state.unlocked[itemKey]) {
+        allParagraphs = allParagraphs.concat(data.unlockData.paragraphs);
+        allHighlights = allHighlights.concat(data.unlockData.highlights || []);
+      }
+      return allParagraphs.map((p) => {
+        return '<p>' + applyHighlights(p, allHighlights) + '</p>';
+      }).join('');
+    }
+
+    function applyHighlights(text, highlights) {
+      if (!highlights || highlights.length === 0) return text;
+      let result = text;
+      highlights.forEach(h => {
+        result = result.split(h).join('<strong style="color:rgba(125,243,255,0.95)">' + h + '</strong>');
+      });
+      return result;
+    }
+
+    // Evidence inputs
+    document.querySelectorAll('.arch-person').forEach(person => {
+      const code = person.querySelector('.arch-code').textContent.trim();
+      const inputs = person.querySelectorAll('.evidence-input');
+
+      inputs.forEach((input, slotIndex) => {
+        input.dataset.person = code;
+        input.dataset.slot = slotIndex;
+
+        const state = getState();
+
+        if (state.evidence && state.evidence[code] && state.evidence[code][slotIndex] !== undefined) {
+          input.value = state.evidence[code][slotIndex];
+        }
+
+        const isLocked = (state.evidenceLocked && state.evidenceLocked[code] && state.evidenceLocked[code][slotIndex]) ||
+                         (state.locked && state.locked[code] && state.locked[code][slotIndex]);
+        if (isLocked) {
+          input.classList.add('locked');
+          input.readOnly = true;
+          input.style.color = '#000';
+        }
+
+        input.addEventListener('click', () => {
+          if (input.classList.contains('locked') && input.value.trim()) {
+            const itemName = input.value.trim();
+            let key = Object.keys(ITEM_DATA).find(k => {
+              const d = ITEM_DATA[k];
+              return (d.displayName || k) === itemName;
+            }) || itemName;
+            if (itemName === '铁锹') {
+              const state = getState();
+              const source = state.inventoryMeta['铁锹']?.source || 'A';
+              key = '铁锹-' + source;
+            }
+            showItemText(key);
+            return;
+          }
+          if (input.classList.contains('locked')) return;
+          if (!selectedItem) return;
+
+          const itemName = selectedItem;
+          const state = getState();
+
+          if (!state.evidence) state.evidence = {};
+          if (!state.evidence[code]) state.evidence[code] = [];
+          const oldValue = state.evidence[code][slotIndex];
+          if (oldValue && oldValue !== itemName) {
+            state.inventory.push(oldValue);
+          }
+
+          input.value = itemName;
+          state.evidence[code][slotIndex] = itemName;
+
+          const idx = state.inventory.indexOf(itemName);
+          if (idx !== -1) {
+            state.inventory.splice(idx, 1);
+          }
+
+          const correctAnswers = EVIDENCE_ANSWERS[code] || [];
+          if (correctAnswers.includes(itemName)) {
+            input.style.color = '#000';
+            input.classList.add('locked');
+            input.readOnly = true;
+            if (!state.evidenceLocked) state.evidenceLocked = {};
+            if (!state.evidenceLocked[code]) state.evidenceLocked[code] = [];
+            state.evidenceLocked[code][slotIndex] = true;
+            saveState(state);
+            renderInventory();
+            showToast('证物识别成功', 'success');
+            checkLetterNotification(state);
+          } else {
+            state.evidence[code][slotIndex] = '';
+            input.value = '';
+            state.inventory.push(itemName);
+            saveState(state);
+            renderInventory();
+            showToast('证物识别失败', 'error');
+            input.classList.add('bounce');
+            setTimeout(() => input.classList.remove('bounce'), 400);
+          }
+
+          selectedItem = null;
+          renderInventory();
+        });
+      });
+    });
+
+    // Inventory
+    const itemSlots = document.querySelectorAll('.item-slot');
+    const textOverlay = document.getElementById('textOverlay');
+    const textBox = document.getElementById('textBox');
+
+    /* chat DOM refs */
+    const chatScreen = document.getElementById('chatScreen');
+    const chatHeaderLeft = document.getElementById('chatHeaderLeft');
+    const chatHeaderRight = document.getElementById('chatHeaderRight');
+    const chatHeaderTitle = document.getElementById('chatHeaderTitle');
+    const chatListPanel = document.getElementById('chatListPanel');
+    const chatMsgPanel = document.getElementById('chatMsgPanel');
+    const chatMsgBody = document.getElementById('chatMsgBody');
+    const chatInput = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const cNiu = document.getElementById('cNiu');
+    const cMa = document.getElementById('cMa');
+    const cGroup = document.getElementById('cGroup');
+    const niuUnread = document.getElementById('niuUnread');
+    const maUnreadSlot = document.getElementById('maUnreadSlot');
+    const groupUnreadSlot = document.getElementById('groupUnreadSlot');
+
+    /* ===== 鬼才信聊天系统（静态历史记录） ===== */
+    let currentChatKey = null;
+    let chatNetSeconds = 0;
+    let chatNetTimer = null;
+
+    const chatState = {
+      niu: {
+        displayName: '牛大人',
+        messages: [
+          { side: 'them', text: '王助理，下五子棋吗？' },
+          { side: 'me', text: '牛大人，城主去黄泉述职，可未曾说给你我放假啊。' },
+          { side: 'them', text: '怕什么，有几个掌案吏还趁机还阳找自己的老情人了。我们就下一盘惊险刺激的五子棋，哪里过分了？' },
+          { side: 'me', text: '那好' },
+          { side: 'them', text: '你跟老马说一声' }
+        ],
+        unread: 0
+      },
+      ma: {
+        displayName: '城主 旻狱',
+        messages: [
+          { side: 'me', text: '今日未时，老牛家院子，五子棋' },
+          { side: 'them', text: '吾去黄泉述职，可未曾说给尔等放假' },
+          { side: 'me', text: '大人恕罪！我只是为牛头马面传递消息，不小心发错了！我也劝导了他二人，奈何他们不听啊！' },
+          { side: 'them', text: '王微。' },
+          { side: 'them', text: '吾有事找你办。若办得好，你便是戮判城正式官吏。' },
+          { side: 'them', text: '现在，速速前去戮判堂。' }
+        ],
+        unread: 0
+      },
+      group: {
+        displayName: '牛马王奋斗群',
+        messages: [],
+        unread: 0
+      }
+    };
+
+    function chatTs() {
+      const mm = String(Math.floor(chatNetSeconds / 60)).padStart(2, '0');
+      const ss = String(chatNetSeconds % 60).padStart(2, '0');
+      return mm + ':' + ss;
+    }
+
+    function syncChatState() {
+      const state = getState();
+      state.chatState = {
+        niu: { messages: chatState.niu.messages, unread: chatState.niu.unread },
+        ma: { messages: chatState.ma.messages, unread: chatState.ma.unread },
+        group: { messages: chatState.group.messages, unread: chatState.group.unread, visible: cGroup.style.display !== 'none' }
+      };
+      saveState(state);
+    }
+
+    function loadChatState() {
+      const state = getState();
+      if (state.chatState) {
+        if (state.chatState.niu) {
+          chatState.niu.messages = state.chatState.niu.messages || chatState.niu.messages;
+          chatState.niu.unread = state.chatState.niu.unread || 0;
+        }
+        if (state.chatState.ma) {
+          chatState.ma.messages = state.chatState.ma.messages || chatState.ma.messages;
+          chatState.ma.unread = state.chatState.ma.unread || 0;
+        }
+        if (state.chatState.group) {
+          chatState.group.messages = state.chatState.group.messages || [];
+          chatState.group.unread = state.chatState.group.unread || 0;
+          if (state.chatState.group.visible) {
+            cGroup.style.display = 'flex';
+          }
+        }
+      }
+    }
+
+    function resetChatClock() {
+      if (chatNetTimer) clearInterval(chatNetTimer);
+      chatNetSeconds = 0;
+      chatNetTimer = setInterval(() => { chatNetSeconds++; }, 1000);
+    }
+
+    function setChatListHeader() {
+      chatHeaderLeft.textContent = '★';
+      chatHeaderRight.textContent = '＋';
+      chatHeaderTitle.textContent = '鬼才信';
+    }
+
+    function setChatMsgHeader(title) {
+      chatHeaderLeft.innerHTML = '<span style="font-size:16px;">↩</span>';
+      chatHeaderRight.textContent = '···';
+      chatHeaderTitle.textContent = title;
+    }
+
+    function markChatRead(threadKey) {
+      chatState[threadKey].unread = 0;
+      refreshChatUnreadUI(threadKey);
+      syncChatState();
+    }
+
+    function bumpChatUnread(threadKey) {
+      if (chatScreen.dataset.view === 'chat' && currentChatKey === threadKey) return;
+      chatState[threadKey].unread += 1;
+      refreshChatUnreadUI(threadKey);
+    }
+
+    function refreshChatUnreadUI(threadKey) {
+      if (threadKey === 'niu') {
+        niuUnread.style.display = chatState.niu.unread > 0 ? 'grid' : 'none';
+        niuUnread.textContent = String(Math.min(99, chatState.niu.unread));
+      }
+      if (threadKey === 'ma') {
+        let badge = maUnreadSlot.querySelector('.chat-unread-badge');
+        if (chatState.ma.unread > 0) {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'chat-unread-badge';
+            maUnreadSlot.replaceChildren(badge);
+          }
+          badge.textContent = String(Math.min(99, chatState.ma.unread));
+        } else {
+          maUnreadSlot.replaceChildren();
+          const spacer = document.createElement('div');
+          spacer.style.width = '10px';
+          spacer.style.height = '10px';
+          maUnreadSlot.appendChild(spacer);
+        }
+      }
+      if (threadKey === 'group') {
+        let badge = groupUnreadSlot.querySelector('.chat-unread-badge');
+        if (chatState.group.unread > 0) {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'chat-unread-badge';
+            groupUnreadSlot.replaceChildren(badge);
+          }
+          badge.textContent = String(Math.min(99, chatState.group.unread));
+        } else {
+          groupUnreadSlot.replaceChildren();
+          const spacer = document.createElement('div');
+          spacer.style.width = '10px';
+          spacer.style.height = '10px';
+          groupUnreadSlot.appendChild(spacer);
+        }
+      }
+    }
+
+    function updateChatContactPreview(threadKey) {
+      const node = { niu: cNiu, ma: cMa, group: cGroup }[threadKey];
+      if (!node) return;
+      const sub = node.querySelector('.chat-contact-sub');
+      const last = chatState[threadKey].messages.at(-1);
+      const plain = last ? last.text.replace(/\n/g, ' ').slice(0, 20) : '';
+      if (sub) sub.textContent = plain || '（暂无新消息）';
+    }
+
+    function showChatList() {
+      currentChatKey = null;
+      chatScreen.dataset.view = 'list';
+      setChatListHeader();
+      resetChatClock();
+      ['niu', 'ma', 'group'].forEach(k => updateChatContactPreview(k));
+    }
+
+    function openChat(threadKey) {
+      currentChatKey = threadKey;
+      chatScreen.dataset.view = 'chat';
+      setChatMsgHeader(chatState[threadKey].displayName);
+      markChatRead(threadKey);
+      renderChat(threadKey);
+    }
+
+    function addChatMessage(threadKey, side, text, tsText) {
+      chatState[threadKey].messages.push({ side, text, tsText });
+      updateChatContactPreview(threadKey);
+      if (!(chatScreen.dataset.view === 'chat' && currentChatKey === threadKey)) {
+        bumpChatUnread(threadKey);
+      }
+      syncChatState();
+    }
+
+    function renderChat(threadKey) {
+      chatMsgBody.innerHTML = '';
+      const msgs = chatState[threadKey].messages;
+      for (const m of msgs) {
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-msg ' + m.side;
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ' + m.side;
+        if (m.side === 'aside') bubble.classList.add('aside');
+        bubble.textContent = m.text;
+        wrap.appendChild(bubble);
+        const ts = document.createElement('div');
+        ts.className = 'chat-ts';
+        ts.textContent = m.tsText || '';
+        wrap.appendChild(ts);
+        chatMsgBody.appendChild(wrap);
+      }
+      chatMsgBody.scrollTop = chatMsgBody.scrollHeight;
+    }
+
+    function checkFirstLoginGroup() {
+      const state = getState();
+      if (!state.firstLoginChat) {
+        state.firstLoginChat = true;
+        saveState(state);
+        cGroup.style.display = 'flex';
+        addChatMessage('group', 'aside', '老马将你拉入新群聊', chatTs());
+        chatState.group.unread = 1;
+        refreshChatUnreadUI('group');
+        updateChatContactPreview('group');
+        syncChatState();
+      }
+    }
+
+    function renderInventory() {
+      const state = getState();
+      itemSlots.forEach(slot => {
+        slot.className = 'item-slot empty';
+        slot.textContent = '';
+        slot.removeAttribute('data-item');
+        slot.removeAttribute('data-key');
+        const oldTip = slot.querySelector('.item-slot-tip');
+        if (oldTip) oldTip.remove();
+      });
+
+      state.inventory.forEach((name, index) => {
+        if (index < itemSlots.length) {
+          const slot = itemSlots[index];
+          slot.classList.remove('empty');
+          slot.classList.add('filled');
+          if (name === selectedItem) {
+            slot.classList.add('selected');
+          }
+          slot.textContent = name;
+          slot.dataset.item = name;
+          const key = Object.keys(ITEM_DATA).find(k => {
+            const d = ITEM_DATA[k];
+            return (d.displayName || k) === name;
+          }) || name;
+          slot.dataset.key = key;
+
+          const tip = document.createElement('div');
+          tip.className = 'item-slot-tip';
+          let tooltipKey = key;
+          if (name === '铁锹') {
+            const source = state.inventoryMeta['铁锹']?.source || 'A';
+            tooltipKey = '铁锹-' + source;
+          }
+          tip.innerHTML = renderSlotTooltipHTML(tooltipKey);
+          slot.appendChild(tip);
+        }
+      });
+    }
+
+    renderInventory();
+
+    function showItemText(itemKey) {
+      if (itemKey === '碎手镯') {
+        renderPagedText(itemKey, 0);
+        return;
+      }
+
+      const data = ITEM_DATA[itemKey];
+      const state = getState();
+      textBox.innerHTML = renderTooltipHTML(itemKey);
+
+      if (data.unlockData && !(state.unlocked && state.unlocked[itemKey])) {
+        const unlockDiv = document.createElement('div');
+        unlockDiv.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.15);';
+        unlockDiv.innerHTML = `
+          <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px;">提示：输入密码以查看更多内容</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" placeholder="输入密码" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:#fff;font-size:13px;outline:none;font-family:inherit;letter-spacing:0.08em;" />
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid rgba(125,243,255,0.35);background:rgba(125,243,255,0.12);color:rgba(255,255,255,0.92);font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:0.08em;">确认</button>
+          </div>
+          <div class="unlock-error" style="font-size:12px;color:#ff8080;margin-top:6px;min-height:16px;"></div>
+        `;
+        textBox.appendChild(unlockDiv);
+
+        const input = unlockDiv.querySelector('input');
+        const btn = unlockDiv.querySelector('button');
+        const error = unlockDiv.querySelector('.unlock-error');
+
+        const check = () => {
+          if (input.value.trim() === data.unlockData.password) {
+            const s = getState();
+            if (!s.unlocked) s.unlocked = {};
+            s.unlocked[itemKey] = true;
+            saveState(s);
+            showItemText(itemKey);
+          } else {
+            error.textContent = '密码错误';
+            input.value = '';
+            input.focus();
+          }
+        };
+
+        btn.addEventListener('click', check);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') check();
+        });
+        input.focus();
+      }
+
+      textOverlay.classList.add('active');
+    }
+
+    function renderPagedText(itemKey, page) {
+      const data = ITEM_DATA[itemKey];
+      const state = getState();
+      const isUnlocked = state.unlocked && state.unlocked[itemKey];
+
+      let html = '<div style="display:flex;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.15);">';
+      const yiActive = page === 0;
+      html += '<button class="page-tab" data-page="0" style="flex:1;padding:10px 0;text-align:center;font-size:14px;letter-spacing:0.2em;border:none;background:transparent;cursor:pointer;font-family:inherit;color:' + (yiActive ? 'rgba(125,243,255,0.95)' : 'rgba(255,255,255,0.5)') + ';border-bottom:2px solid ' + (yiActive ? 'rgba(125,243,255,0.6)' : 'transparent') + ';">壹</button>';
+      const erActive = page === 1;
+      html += '<button class="page-tab" data-page="1" style="flex:1;padding:10px 0;text-align:center;font-size:14px;letter-spacing:0.2em;border:none;background:transparent;cursor:pointer;font-family:inherit;color:' + (erActive ? 'rgba(125,243,255,0.95)' : 'rgba(255,255,255,0.5)') + ';border-bottom:2px solid ' + (erActive ? 'rgba(125,243,255,0.6)' : 'transparent') + ';">贰</button>';
+      html += '</div>';
+
+      if (page === 0) {
+        data.paragraphs.forEach((p, i) => {
+          let prefix = i === 0 ? '【' : '';
+          let suffix = i === data.paragraphs.length - 1 ? '】' : '';
+          let text = prefix + '「' + p + '」' + suffix;
+          html += '<p>' + applyHighlights(text, data.highlights) + '</p>';
+        });
+      } else {
+        if (!isUnlocked) {
+          html += '<div style="margin-top:20px;">';
+          html += '<div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:12px;">此页内容已锁定，输入密码以查看</div>';
+          html += '<div style="display:flex;gap:8px;">';
+          html += '<input type="text" class="pw-input" placeholder="输入密码" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:#fff;font-size:13px;outline:none;font-family:inherit;letter-spacing:0.08em;" />';
+          html += '<button class="pw-btn" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(125,243,255,0.35);background:rgba(125,243,255,0.12);color:rgba(255,255,255,0.92);font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:0.08em;">确认</button>';
+          html += '</div>';
+          html += '<div class="pw-error" style="font-size:12px;color:#ff8080;margin-top:6px;min-height:16px;"></div>';
+          html += '</div>';
+        } else {
+          const up = data.unlockData;
+          up.paragraphs.forEach((p, i) => {
+            let suffix = i === up.paragraphs.length - 1 ? '】' : '';
+            let text = '「' + p + '」' + suffix;
+            html += '<p>' + applyHighlights(text, up.highlights || []) + '</p>';
+          });
+        }
+      }
+
+      textBox.innerHTML = html;
+      textOverlay.classList.add('active');
+
+      textBox.querySelectorAll('.page-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetPage = parseInt(btn.dataset.page);
+          if (targetPage === 1 && !isUnlocked) {
+            renderPagedText(itemKey, 1);
+          } else {
+            renderPagedText(itemKey, targetPage);
+          }
+        });
+      });
+
+      const pwBtn = textBox.querySelector('.pw-btn');
+      if (pwBtn) {
+        const input = textBox.querySelector('.pw-input');
+        const error = textBox.querySelector('.pw-error');
+        const check = () => {
+          if (input.value.trim() === data.unlockData.password) {
+            const s = getState();
+            if (!s.unlocked) s.unlocked = {};
+            s.unlocked[itemKey] = true;
+            saveState(s);
+            renderPagedText(itemKey, 1);
+          } else {
+            error.textContent = '密码错误';
+            input.value = '';
+            input.focus();
+          }
+        };
+        pwBtn.addEventListener('click', check);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') check();
+        });
+        input.focus();
+      }
+    }
+
+    document.getElementById('itemGrid').addEventListener('click', (e) => {
+      const slot = e.target.closest('.item-slot');
+      if (!slot) { selectedItem = null; renderInventory(); return; }
+
+      if (!slot.dataset.item) {
+        selectedItem = null;
+        renderInventory();
+        return;
+      }
+
+      const itemName = slot.dataset.item;
+      if (selectedItem === itemName) {
+        let itemKey = slot.dataset.key;
+        if (itemName === '铁锹') {
+          const state = getState();
+          const source = state.inventoryMeta['铁锹']?.source || 'A';
+          itemKey = '铁锹-' + source;
+        }
+        selectedItem = null;
+        renderInventory();
+        showItemText(itemKey);
+      } else {
+        selectedItem = itemName;
+        renderInventory();
+        showToast('已选中「' + itemName + '」');
+      }
+    });
+
+    textOverlay.addEventListener('click', (e) => {
+      if (e.target === textOverlay) {
+        textOverlay.classList.remove('active');
+      }
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) {
+        renderInventory();
+      }
+    });
+
+    // ===== 开发者调试：5秒内连按两次 ESC 重置 =====
+    let escCount = 0;
+    let escTimer = null;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        escCount++;
+        if (escCount >= 2) {
+          escCount = 0;
+          clearTimeout(escTimer);
+          if (confirm('⚠️ 开发者重置：确定要清空本地存档并回到初始状态吗？')) {
+            localStorage.removeItem(STORAGE_KEY);
+            location.reload();
+          }
+        } else {
+          clearTimeout(escTimer);
+          escTimer = setTimeout(() => { escCount = 0; }, 5000);
+        }
+      }
+    });
+
+    // ===== 聊天系统初始化 =====
+    loadChatState();
+    refreshChatUnreadUI('niu');
+    refreshChatUnreadUI('ma');
+    refreshChatUnreadUI('group');
+    const _chatInitState = getState();
+    if (_chatInitState.groupChatTriggered) {
+      cGroup.style.display = 'flex';
+    }
+    checkFirstLoginGroup();
+
+    cNiu.addEventListener('click', () => openChat('niu'));
+    cMa.addEventListener('click', () => openChat('ma'));
+    cGroup.addEventListener('click', () => openChat('group'));
+
+    chatHeaderLeft.addEventListener('click', () => {
+      if (chatScreen.dataset.view === 'chat') showChatList();
+    });
+
+    chatSendBtn.addEventListener('click', () => {
+      if (!currentChatKey || !awaitingDraft) return;
+      addChatMessage(currentChatKey, 'me', awaitingDraft, chatTs());
+      chatState[currentChatKey].ptr += 1;
+      renderChat(currentChatKey);
+      markChatRead(currentChatKey);
+      tickThread(currentChatKey, { afterSend: true });
+    });
+
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !chatSendBtn.disabled) {
+        chatSendBtn.click();
+      }
+    });
+
+  </script>
+
+  <div class="toast-msg" id="toastMsg"></div>
+</body>
+</html>

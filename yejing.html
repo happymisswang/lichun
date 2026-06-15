@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>戮判城工作系统 - 业镜台</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "SimSun", "宋体", serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      position: relative;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.15;
+      background-image:
+        radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.3) 0, transparent 3px),
+        radial-gradient(circle at 20px 30px, rgba(255, 255, 255, 0.25) 0, transparent 3px),
+        radial-gradient(circle at 40px 10px, rgba(255, 255, 255, 0.2) 0, transparent 3px),
+        radial-gradient(circle at 10px 40px, rgba(255, 255, 255, 0.2) 0, transparent 3px);
+      background-size: 80px 80px;
+      mix-blend-mode: screen;
+    }
+
+    .workspace {
+      position: relative;
+      z-index: 1;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      border-radius: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: none;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ws-tabs {
+      display: flex;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
+      padding: 0;
+      margin: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.25);
+      box-sizing: border-box;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .ws-tab {
+      flex: 1;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      border-radius: 0;
+      border: none;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: transparent;
+      cursor: pointer;
+      font-size: 16px;
+      letter-spacing: 0.18em;
+      text-decoration: none;
+      color: inherit;
+      overflow: hidden;
+      transition: flex 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.35s ease, padding 0.3s ease;
+    }
+
+    .ws-tab:last-child { border-right: none; }
+
+    .ws-tab[data-active="true"] {
+      background: rgba(125, 243, 255, 0.08);
+    }
+
+    .ws-tab[data-active="true"] .ws-tab-title {
+      color: rgba(125, 243, 255, 0.95);
+      text-shadow: 0 0 8px rgba(125, 243, 255, 0.25);
+    }
+
+    @font-face {
+      font-family: 'HuiwenMincho';
+      src: url('assets/fonts/Huiwen-mincho.otf') format('opentype'),
+           url('assets/fonts/Huiwen-mincho.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    .ws-tab-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      z-index: 2;
+      font-family: 'HuiwenMincho', "SimSun", "宋体", serif;
+      transition: left 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .ws-tab-desc {
+      position: absolute;
+      left: 140px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.06em;
+      line-height: 1.5;
+      opacity: 0;
+      max-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      transition: opacity 0.35s ease 0.08s, max-width 0.5s ease;
+    }
+
+    /* 有任意 tab 被悬停时，非悬停 tab 收缩消失 */
+    .ws-tabs:has(.ws-tab:hover) .ws-tab:not(:hover) {
+      flex: 0;
+      opacity: 0;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .ws-tab:hover .ws-tab-title {
+      left: 20px;
+      transform: translateX(0);
+    }
+
+    .ws-tab:hover .ws-tab-desc {
+      opacity: 1;
+      max-width: calc(100% - 160px);
+    }
+
+    .ws-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+    }
+
+    .ws-chat {
+      flex: 0 0 260px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .ws-main {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 14px;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .ws-side {
+      flex: 0 0 110px;
+      min-width: 0;
+      padding: 10px;
+      overflow: auto;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .ws-side-title {
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      margin-bottom: 10px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    /* 场景 */
+    .scene-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+      position: relative;
+      width: 100%;
+    }
+
+    .scene-wrapper .scene-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scene-wrapper .scene-container img {
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .hotspot {
+      position: absolute;
+      cursor: default;
+      background: rgba(125, 243, 255, 0.05);
+      border: 1px dashed rgba(125, 243, 255, 0.25);
+      z-index: 2;
+    }
+
+    #hotspotContainer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    #hotspotContainer .hotspot {
+      pointer-events: auto;
+    }
+
+    .back-arrow {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 5;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.55);
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      font-family: inherit;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .back-arrow:hover {
+      background: rgba(0, 0, 0, 0.75);
+      border-color: rgba(125, 243, 255, 0.4);
+    }
+
+    .hub-switcher {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      z-index: 5;
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.55);
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      font-family: inherit;
+      display: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .hub-switcher:hover {
+      background: rgba(0, 0, 0, 0.75);
+      border-color: rgba(125, 243, 255, 0.4);
+    }
+
+    /* ===== SCENE SWITCH ARROWS ===== */
+    .scene-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 6;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: #BD3340;
+      color: #7fffd4;
+      font-size: 28px;
+      line-height: 56px;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .scene-arrow:hover {
+      transform: translateY(-50%) scale(1.08);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+      background: #d13a48;
+    }
+
+    .scene-arrow-left {
+      left: 14px;
+    }
+
+    .scene-arrow-right {
+      right: 14px;
+    }
+
+    .scene-arrow::before {
+      content: '';
+      width: 14px;
+      height: 14px;
+      border-top: 3px solid currentColor;
+      border-right: 3px solid currentColor;
+      transform: rotate(45deg);
+      margin-left: -3px;
+    }
+
+    .scene-arrow-left::before {
+      transform: rotate(-135deg);
+      margin-left: 3px;
+    }
+
+    /* 物品栏 */
+    .item-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .item-slot {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .item-slot.filled {
+      border-color: rgba(125, 243, 255, 0.35);
+      background: rgba(125, 243, 255, 0.08);
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .item-slot.selected {
+      border-color: #41ae3c;
+      background: rgba(65, 174, 60, 0.12);
+      color: #41ae3c;
+      box-shadow: 0 0 10px rgba(65, 174, 60, 0.3);
+    }
+
+    .item-slot-tip {
+      position: absolute;
+      right: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      width: min(320px, 70vw);
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(0, 0, 0, 0.88);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+      line-height: 1.8;
+      letter-spacing: 0.06em;
+      display: none;
+      pointer-events: none;
+      text-align: left;
+    }
+
+    .item-slot-tip::after {
+      content: "";
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-width: 6px 0 6px 6px;
+      border-style: solid;
+      border-color: transparent transparent transparent rgba(125, 243, 255, 0.35);
+    }
+
+    .item-slot:hover .item-slot-tip {
+      display: block;
+    }
+
+    .item-slot.empty::before {
+      content: attr(data-index);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.25);
+    }
+
+    .text-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      padding: 40px;
+    }
+
+    .text-overlay.active {
+      display: flex;
+    }
+
+    .text-box {
+      width: min(720px, 90vw);
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 32px 36px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(10, 12, 22, 0.96);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 15px;
+      line-height: 2;
+      letter-spacing: 0.06em;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85);
+    }
+
+    .text-box p {
+      margin-bottom: 16px;
+      text-indent: 2em;
+    }
+
+    .text-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Toast 提示 */
+    .toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      z-index: 200;
+      padding: 10px 24px;
+      border-radius: 999px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(0, 0, 0, 0.85);
+      color: rgba(125, 243, 255, 0.95);
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .toast.active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* 密码输入弹窗 */
+    .password-popup {
+      position: fixed;
+      z-index: 150;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(10, 12, 22, 0.96);
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85);
+    }
+
+    .password-hint {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 8px;
+      letter-spacing: 0.08em;
+    }
+
+    .password-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .password-input {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+    }
+
+    .password-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(125, 243, 255, 0.12);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+      transition: background 0.15s;
+    }
+
+    .password-btn:hover {
+      background: rgba(125, 243, 255, 0.22);
+    }
+
+    .password-error {
+      font-size: 12px;
+      color: #ff8080;
+      margin-top: 6px;
+      min-height: 16px;
+      letter-spacing: 0.06em;
+    }
+
+    /* ===== 鬼才信聊天栏 ===== */
+    .chat-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      position: relative;
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.25);
+      text-align: center;
+    }
+
+    .chat-title {
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 700;
+    }
+
+    .chat-header-left, .chat-header-right {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .chat-header-left { left: 8px; }
+    .chat-header-right { right: 8px; }
+
+    .chat-main {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .chat-list-panel, .chat-msg-panel {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+    }
+
+    .chat-screen[data-view="list"] .chat-list-panel { display: block; }
+    .chat-screen[data-view="list"] .chat-msg-panel { display: none; }
+    .chat-screen[data-view="chat"] .chat-list-panel { display: none; }
+    .chat-screen[data-view="chat"] .chat-msg-panel { display: flex; flex-direction: column; }
+
+    .chat-contact-list {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chat-contact {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .chat-contact:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .chat-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(125, 243, 255, 0.12);
+      border: 1px solid rgba(125, 243, 255, 0.3);
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.92);
+      font-weight: 800;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .chat-contact-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-contact-name {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: 0.08em;
+    }
+
+    .chat-contact-sub {
+      margin-top: 2px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-unread-badge {
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: #ff3b30;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .chat-msg-panel {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-msg-body {
+      flex: 1;
+      padding: 8px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-msg {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chat-msg.them { align-items: flex-start; }
+    .chat-msg.me { align-items: flex-end; }
+
+    .chat-bubble {
+      max-width: 85%;
+      width: fit-content;
+      padding: 8px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+      word-break: break-word;
+    }
+
+    .chat-bubble.them {
+      background: rgba(255, 255, 255, 0.9);
+      color: #111;
+    }
+
+    .chat-bubble.me {
+      background: #95EC69;
+      color: #111;
+    }
+
+    .chat-bubble.aside {
+      align-self: center;
+      max-width: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 11px;
+    }
+
+    .chat-ts {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .chat-actions {
+      flex-shrink: 0;
+      padding: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .chat-composer {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .chat-composer-input {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(0, 0, 0, 0.25);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .chat-send-btn {
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(125, 243, 255, 0.12);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+    }
+
+    .chat-send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    /* ===== CUSTOM SCROLLBAR ===== */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #000;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #7fffd4;
+      border-radius: 5px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #7fffd4;
+    }
+    ::-webkit-scrollbar-button {
+      background: #7fffd4;
+    }
+    ::-webkit-scrollbar-corner {
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="workspace" aria-label="戮判城工作台">
+    <div class="ws-tabs">
+      <a class="ws-tab" href="dangan.html">
+        <span class="ws-tab-title">【档案台】</span>
+        <span class="ws-tab-desc">这里是死者的死法。但我并不知道他们是谁，也许应该到业镜台找到他们的死亡时的证物。</span>
+      </a>
+      <a class="ws-tab" href="yejing.html" data-active="true">
+        <span class="ws-tab-title">【业镜台】</span>
+        <span class="ws-tab-desc">这里会有死者死亡时，身上最可疑的物品。每件物品都有死者的供词。可以根据供词找到物品的主人，记录在档案中。</span>
+      </a>
+      <a class="ws-tab" href="lunhui.html">
+        <span class="ws-tab-title">【轮回轨】</span>
+        <span class="ws-tab-desc">裁决最终进行的地方。我需要将什么东西按顺序输入，才能启动轮回轨，让亡魂投生六道。</span>
+      </a>
+    </div>
+    <div class="ws-body">
+      <aside class="ws-chat" id="chatSidebar" aria-label="鬼才信">
+        <div class="chat-screen" id="chatScreen" data-view="list">
+          <div class="chat-header">
+            <div class="chat-header-left" id="chatHeaderLeft">★</div>
+            <div class="chat-title" id="chatHeaderTitle">鬼才信</div>
+            <div class="chat-header-right" id="chatHeaderRight">＋</div>
+          </div>
+          <div class="chat-main">
+            <div class="chat-list-panel" id="chatListPanel">
+              <div class="chat-contact-list" id="chatContactList">
+                <div class="chat-contact" data-key="niu" id="cNiu">
+                  <div class="chat-avatar">牛</div>
+                  <div class="chat-contact-info">
+                    <div class="chat-contact-name">牛大人</div>
+                    <div class="chat-contact-sub">王助理，下五子棋吗？</div>
+                  </div>
+                  <div class="chat-unread-badge" id="niuUnread" style="display:none;"></div>
+                </div>
+                <div class="chat-contact" data-key="ma" id="cMa">
+                  <div class="chat-avatar" style="background:rgba(255,139,246,0.07);border-color:rgba(255,139,246,0.25);">旻</div>
+                  <div class="chat-contact-info">
+                    <div class="chat-contact-name">城主</div>
+                    <div class="chat-contact-sub">（暂无新消息）</div>
+                  </div>
+                  <div id="maUnreadSlot" style="width:10px;height:10px;"></div>
+                </div>
+                <div class="chat-contact" data-key="group" id="cGroup" style="display:none;">
+                  <div class="chat-avatar" style="background:rgba(125,243,255,0.07);border-color:rgba(125,243,255,0.25);">群</div>
+                  <div class="chat-contact-info">
+                    <div class="chat-contact-name">牛马王奋斗群</div>
+                    <div class="chat-contact-sub">（暂无新消息）</div>
+                  </div>
+                  <div id="groupUnreadSlot" style="width:10px;height:10px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-msg-panel" id="chatMsgPanel">
+              <div class="chat-msg-body" id="chatMsgBody"></div>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <div class="chat-composer">
+              <input class="chat-composer-input" id="chatInput" type="text" readonly placeholder="请输入内容" value="" />
+              <button class="chat-send-btn" id="chatSendBtn" type="button" disabled>发送</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="ws-main">
+        <div class="scene-wrapper" id="sceneWrapper">
+          <div class="scene-container">
+            <img id="sceneImg" src="assets/scence1.png" alt="场景" />
+            <div id="hotspotContainer"></div>
+          </div>
+          <button class="back-arrow" id="backArrow" style="display:none;">← 返回</button>
+          <button class="hub-switcher" id="hubSwitcher" style="display:none;" title="切换大场景">⇄</button>
+          <button class="scene-arrow scene-arrow-left" id="sceneArrowLeft" title="切换到场景1"></button>
+          <button class="scene-arrow scene-arrow-right" id="sceneArrowRight" title="切换到场景2"></button>
+        </div>
+      </div>
+      <aside class="ws-side" aria-label="物品栏">
+        <div class="ws-side-title">物品栏</div>
+        <div class="item-grid" id="itemGrid">
+          <div class="item-slot empty" data-index="1"></div>
+          <div class="item-slot empty" data-index="2"></div>
+          <div class="item-slot empty" data-index="3"></div>
+          <div class="item-slot empty" data-index="4"></div>
+          <div class="item-slot empty" data-index="5"></div>
+          <div class="item-slot empty" data-index="6"></div>
+          <div class="item-slot empty" data-index="7"></div>
+          <div class="item-slot empty" data-index="8"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="text-overlay" id="textOverlay">
+    <div class="text-box" id="textBox"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STORAGE_KEY = 'lpc_game_state';
+
+    const ITEM_ANSWERS = {
+      '《伊索寓言》': '乙'
+    };
+
+    const ITEM_DATA = {
+      '《伊索寓言》': {
+        paragraphs: [
+          '我不喜欢读书，读书有什么用呢？反正我永远也不会走出去。这条姓方的村子才是我的家。我爹说，等我长大就给我买个媳妇，暖暖和和地过日子。',
+          '这本书是我娘小时候给我读的，她的声音很好听，比张老师还好听。娘坐在很大的窗子前，我坐在会摇的凳子上……五岁之前很多事我都不记得，就只记得这个。',
+          '只是五岁那年生过病以后，她再也不给我读了。什么窗子、会摇的凳子，我也没有在我家见过。',
+          '这本书里，我有个问题一直不明白，就去问我娘。我问过她为什么蛇要咬自己的救命恩人，她说没听过、还说，农夫是该死，一定是惹了谁，才会放蛇咬死他。'
+        ],
+        highlights: ['一定是惹了谁，才会放蛇咬死他']
+      },
+      '棉袄': {
+        paragraphs: [
+          '外面，冷。娘，死。穿娘衣服，爹高兴。',
+          '脚冷。姐姐，指路，她家。有死人，死蛇。',
+          '死人鞋子，最暖和。'
+        ],
+        highlights: ['穿娘衣服，爹高兴']
+      },
+      '哨子': {
+        paragraphs: [
+          '屋子黑。狗洞，爹娘不知，小黑知。',
+          '路过小孩，不要的。小黑给我。',
+          '吹，小黑来。好朋友。'
+        ],
+        highlights: ['小黑']
+      },
+      '铁锹-A': {
+        displayName: '铁锹',
+        paragraphs: [
+          '“死了一个女娃，我和村长把她埋了。她的父母都自杀了。我们也不希望她是同样的结局，她死得太惨了。”',
+          '“我和村长猜测，她的父母应该不希望她跟他们埋在一起吧。于是我找了个安静的山坡，村长拿上锄头和铁锹，天还没亮的时候我们两个就把她埋了。如果让村民看见她惨死，我无法向他们交代。”',
+          '“我没有料到，这个山坡竟然有野狗出没。这些畜生发了疯一样冲上来，撕咬我全身的肉！而那该死的方永强，他竟然丢下我躲在一旁！我被咬中了咽喉……我王敬慈竟然死在了畜生手里……”'
+        ],
+        highlights: ['她的父母都自杀了', '王敬慈', '方永强']
+      },
+      '狗牙吊坠': {
+        displayName: '狗牙吊坠',
+        paragraphs: [
+          '“您是我见过，第二个听得懂狗说话的人，青天大老爷。”',
+          '“这颗牙其实是我自己的。很久之前，我被村里其他看门狗给揍了，他们说我是没有主人的狗。我最锋利的牙齿被他们打掉了。”',
+          '“她帮我把断掉的牙齿用绳子绑起来——那看起来像她用来绑头发的头绳。她说，她反正也用不上，就给我了。”',
+          '“她住的地方就在猪窝旁边，我经常听见她的父母叫她来男，但我不识字。她房间的大门常年，她只能靠墙边的狗洞看到阳光。她对外面的世界知之甚少，甚至比不过一条丧家之犬。”',
+          '“她能听懂我的话，反而人类的话不怎么擅长。我就把外面发生的事情告诉她，把有趣的东西带给她。直到我自己的孩子出生后，我才意识到，她是我养育的第一个孩子。”'
+        ],
+        highlights: ['来男', '第二个听懂', '狗']
+      },
+      '碎手镯': {
+        displayName: '碎手镯',
+        paragraphs: [
+          '她是怎么到这个村子里来的？这两年地狱般的生活，她也许都快要忘了。',
+          '父母说她没用，但他们不知道，整条街都归她管。那天她在小妹小弟的簇拥下庆祝完17岁生日，甜腻的奶油还涂在脸上，却遭到了隔壁街帮派的偷袭。所有人都没有防备，她不知道被谁打了一棍，醒来就来到了这里。',
+          '男人把她抱到炕上，门口两张苍老的脸恬不知耻地窥探。',
+          '那个人身上的气味很难闻，像是血液里混着粪便的味道。头顶留下来的血液，浓稠得像冷藏了很久的猪油。',
+          '“我知道你不适应，”男人的母亲端着早餐进来，“但你只能接受了，这是你命里要给他当老婆！”',
+          '老妇从衣服里摸出一个手镯，不顾她的反抗，推进她的手腕。',
+          '“你看，这是他给你寻的礼物，喜欢不？”',
+          '寻？',
+          '其实是捡的。两年前的中元节，在村长家的井里。'
+        ],
+        highlights: ['两年前的中元节，在村长家的井里'],
+        unlockData: {
+          password: '19900803',
+          paragraphs: [
+            '“那晚张舜华叫我出去给孩子们缝校服。等我到了她宿舍的时候，她说，今晚他们慈善基金会的车会来送图书，这次来了两辆车，被拐来石泉村且还活着的，还剩四个姑娘。一辆车里藏四个人容易被发现，她让我藏到另外一辆车里。”',
+            '“我相信她。我立刻就上了车。”',
+            '“上车前，我路过井边的时候，在冰面上滑了一跤，手镯被磕碎了，我手忙脚乱地把它们捡起来。”',
+            '“车子远离了这片村庄。离开的这条路我一共尝试了三次，最远走到了那片杨树林。我曾经用半条命也走不完的路，如今只是在车窗晃过，在我的视线里停留不超过五秒。”',
+            '“出去以后，我要先找到我的父母，即便他们不怎么爱我，但我想这些天他们也并不好过。和父母待几天，张老师应该也差不多出来了，她要带我认识几个在胜振市做生意的朋友，我这样活泼好动的人适合跟着他们混。”',
+            '“我想未来再辛苦，也不会比现在差了。”',
+            '“一声尖利的哭声打断了我的思路。我没想到还有个小孩也躲在车上。车里开着暖气，他睡得很沉，不知道开出了村庄多久他才醒。他一醒，整个人就开始发疯，嘴里喊着“别带我走”。我摁不住他，他甚至探出身子去抢司机的方向盘。山路本就曲折，他这一抢，车子就失了控。”',
+            '“我死的时候还是漫漫长夜，也不知道离天光破晓还有多久。也许就差那么一点点，天就亮了。”'
+          ],
+          highlights: [
+            '我路过井边的时候，在冰面上滑了一跤，手镯被磕碎了',
+            '张舜华',
+            '我没想到还有个小孩也躲在车上',
+            '他甚至探出身子去抢司机的方向盘'
+          ]
+        }
+      },
+      '红包': {
+        displayName: '红包',
+        paragraphs: [
+          '“过年前我生下了一个死婴。怀孕的时候，王神婆说是男孩，屠户一家很高兴，给了我一个红包。他们心里很清楚，给了我也根本没有机会用。”',
+          '“生产时我受尽折磨，若我在那时候死了，就不用下地狱了。但那时候我想，如果我生下了这个男孩，这个世界也许又会多一个像我这样的受害者。”',
+          '“幸好，他在睁眼见到这个世界前就停止了呼吸。屠户一家差点杀了我，王神婆拦住了他们，说要是我死了，他们的钱就打水漂了。”'
+        ],
+        highlights: []
+      },
+      '钢剑': {
+        displayName: '钢剑',
+        paragraphs: [
+          '“比起桃木剑，我更喜欢用钢剑。它用途可多了，可以杀公鸡取血。公鸡的血是至阳之物，任何邪物接触都会现原形。自从那个姓张的老师来了，村子里就不太平。要疯的疯，要逃的逃，也不知道从外面带了什么脏东西进来。”',
+          '“我老太婆有点本事，一眼就能分出对面是人是鬼。我从来没有错杀过。”',
+          '“……应该没有。”'
+        ],
+        highlights: ['姓张的老师']
+      },
+      '黑火药': {
+        displayName: '黑火药',
+        paragraphs: [
+          '“青天大老爷，这是我自己做的，平时也就用来打打猎，我从来没有拿它杀过人啊！”',
+          '“是张舜华进我家偷东西，还拿它杀了我！她竟然还是老师！平时教书育人斯斯文文的，杀起人来眼睛都不眨！我本来都不计较她进我家偷东西了，我拿她当儿媳妇疼，她却以为我要干什么，把我的枪抢走了！”',
+          '“你看她那把年纪还没个男人，我好心好意要给她个家有什么错？我儿子是有过女人，但这不跟我一样，更会疼人吗？我只是跟她说了点话，什么也没做。她凭什么杀我！”',
+          '“不过……她很快就会为此付出代价……临死前我儿子赶到了，他答应我……会把她绑起来……明天在我的葬礼上，石泉村的所有人，一人一把火，将她活活烧死！”'
+        ],
+        highlights: []
+      },
+      '钉子': {
+        displayName: '钉子',
+        paragraphs: [
+          '“我的脚掌里竟然扎了钉子？村子有遗落的钉子很正常，可能是那时我已经忘记了疼痛吧。”',
+          '“晚上我听见一声男人的尖叫。等我回到那里的时候，厅里死了一男一女，她不见了。”',
+          '“我在村子里找了好一会儿，突然听见公鸡叫了一声——那不是报晓，而是惨叫。”',
+          '“有个女人突然出现在我身后，她全身透明。她举起手指向一个方向。我相信了她，带着我的孩子们去了那个山坡。熟悉的气味混杂在血腥味里，还有死亡的气息。”',
+          '“也许在我赶路的时候脚上就不小心扎了钉子。畜生也有愤怒的，也会因此忘却疼痛。我扑过去，咬断了老太婆的脖子，我帮她报了仇。”',
+          '“我看见老太婆睁着眼停止了呼吸，突然几声巨响划破夜空。我的孩子们一个个地倒在了地上，最后我也倒下了。我们的血液流进泥土里，像他们刚出生的时候那样……”',
+          '“我只怕我的孩子们会痛……我永远爱我的所有孩子。”'
+        ],
+        highlights: ['咬断了老太婆的脖子']
+      },
+      '???': {
+        displayName: '???',
+        paragraphs: ['只是一个碗，好像没什么用。'],
+        highlights: []
+      },
+      '??': {
+        displayName: '??',
+        paragraphs: ['只是一只鸡，好像没什么用。'],
+        highlights: []
+      },
+      '鸡毛': {
+        displayName: '鸡毛',
+        paragraphs: [
+          '“姐姐，不见。找。”',
+          '“有鸡，好玩！……被发现，尖叫。”',
+          '“老太婆，杀鸡，泼血！臭！看不见！痛！'
+        ],
+        highlights: []
+      },
+      '梳子': {
+        displayName: '梳子',
+        paragraphs: [
+          '“没了来顺我太痛苦了，田富也和我一样。他难过得整天话也不说。”',
+          '“我生了来楠以后再也没有怀孕。没有了来顺，我们再也不会有其他孩子了。”',
+          '“那天田富给我端来混着白糖的农药，我眼也不眨地喝了。我说农药实在太苦了，他看着我，片刻又去弄了一碗白糖来，让我甜甜嘴，见到儿子多说点高兴的。”',
+          '“对了，田富走之前有没有帮我梳好头发、穿上新衣服？我活得稀里糊涂也就罢了，最后只想和田富体面地走。”'
+        ],
+        highlights: ['来顺', '来楠', '田富']
+      },
+      '诱蛇神药': {
+        displayName: '诱蛇神药',
+        paragraphs: [
+          '“我们地里最近闹老鼠，就找王神婆要了点药粉，招点蛇来吃老鼠。”',
+          '“有毒没毒我们庄稼人一眼就能看出来，能被毒死的，肯定是把那头惹急了，那也是活该。”'
+        ],
+        highlights: []
+      },
+      '盐巴和冰镐': {
+        displayName: '盐巴和冰镐',
+        paragraphs: [
+          '“跟王神婆处理完那田富家姑娘的尸体以后，回到家已经天亮了。我睡不着，想起咱家和广才家中间的那口井的井盖被冻了个严实，这几天打别人家的井也怪不好意思的，就拿着盐巴和冰镐，又烧了点热水出去了。”',
+          '“这井盖沿的冰刚化开，我一拿起盖子的时候，就有什么东西叮叮咚咚地掉进井里。我还发现井边有几块玉镯子的碎片，颜色雪白，跟雪地几乎融为一体。”',
+          '“我天生就是个劳碌的命，根本闲不下来。没别的事干，我就去学校看看孩子们。”'
+        ],
+        highlights: ['跟王神婆处理完那田富家姑娘的尸体', '咱家和广才家中间的那口井', '井边有几块玉镯子的碎片']
+      },
+      '收据': {
+        displayName: '收据',
+        paragraphs: [
+          '“在王神婆那里买了老婆，我拿到一张收据，‘那边’也有一张，人都认得的。我平时都放在内裤的口袋里。要是人跑了，给村长看，铁定能抓回来。”',
+          '“要不是那小子坏事，就算那贱人坐车跑了，到了县城也跑不远！现在人死了，老子什么都没了！她死就算了，还害死了我儿子！”'
+        ],
+        highlights: []
+      },
+      '干馒头': {
+        displayName: '干馒头',
+        paragraphs: [
+          '“这是我给她带的。村里有人说她在逃跑的路上死了，我就给她带了点祭品。再如何也是夫妻一场，希望她一路走好。”',
+          '“她走的那天晚上，我没有让她吃饭。过路的乡亲一到村子里报消息，我就过去了。我带了五个馒头，和一捆香。但是我没有看到她的尸体，说是掉进河里被冲走了。”',
+          '“那场车祸里司机也死了，只有方田富家的儿子活了下来。他被卡在驾驶室，爹妈也还没来。我使劲全身力气，也没有将他抱出来。多么可怜的一个男娃，都长到8岁了，可我们家的连眼睛都没睁……我看他哭个不停，就好心劝他吃点东西。”',
+          '“这天晚上我忙了好久，回到家里倒头就睡了，兜里的馒头还没有掏出来。”'
+        ],
+        highlights: []
+      },
+      '白糖': {
+        displayName: '白糖',
+        paragraphs: [
+          '“没了儿子，我们都准备死。”',
+          '“我用开水兑了两碗农药，还加了点白糖。她喝下了我给她的那碗，说农药苦。我又给她吃了点白糖。她吃完还是说苦，我说你见到儿子嘴要甜点，大家都高高兴兴地在地下团聚。”',
+          '“我们约好的是她先死，然后我帮她换上新的袄子，再陪她一起死。那件袄子还是为了过年打的，用了不少棉花。要是来顺还在，还能留给他娶老婆。”',
+          '“我是骗她的。她的那碗只有农药，我的这碗只有白糖。既然把苦留给了她，我也不能浪费这最后一点甜。”'
+        ],
+        highlights: ['袄子', '来顺', '她的那碗只有农药，我的这碗只有白糖']
+      },
+      '电话圈发绳': {
+        displayName: '电话圈发绳',
+        paragraphs: [
+          '“以前我家里很多，来到这里以后，只有大红色的头绳。”',
+          '“那唯一的一根大红色头绳，我用来上吊了。但张舜华冲过来把它剪断了，她把自己头上的发圈给了我，像屠户的母亲一样，和蔼可亲地把它套在我的手上。”',
+          '“她是这里的老师，我不觉得她会帮我。”'
+        ],
+        highlights: []
+      },
+      '馒头': {
+        displayName: '馒头',
+        paragraphs: [
+          '“我不喜欢吃馒头……”',
+          '“可是广才叔说，受了重伤的人要立刻大口大口吃东西，才不会被阎王收走……”',
+          '“馒头又冷又硬，还有一些猪棚的味道。我以为我乖乖地吃下就能好，我为什么会到这里来……”'
+        ],
+        highlights: ['广才叔']
+      },
+      '方向盘': {
+        displayName: '方向盘',
+        paragraphs: [
+          '“我怎么可能会开车呢？我只是不想离开石泉村而已，怎么会有这个东西在我手上！”',
+          '“一定是车祸的时候，不小心掉在我身上的！我记得车子翻了几个滚，那女的都被甩下了山崖！”',
+          '“这是张老师学校的车……我不知道为什么张老师不在上面……反而是广才叔家的媳妇……”'
+        ],
+        highlights: ['广才叔家的媳妇']
+      },
+      '一碗水': {
+        displayName: '一碗水',
+        paragraphs: [
+          '马面给你端上一碗水。',
+          '“这是在村长和屠户家中间那口井打的水。”',
+          '“哦我们不是鬼吗，怎么还能碰物质界的东西呢？”',
+          '你接过这碗水，面带微笑地喝下去，回味了一下，“嗯——果然有毒啊！”',
+          '你直直地倒下去，马面连忙扶起你。',
+          '你：“有点拉肚子，先上个厕所。”',
+          '马面看着你远去的背影，他似乎不太理解“拉肚子”是什么意思。',
+          '“也许是把肚子拉长，这样能试到更多的毒。”牛头解释道，“就像咱们把眼珠子抠出来，就能看到自己的后背那样。”',
+          '“原来是这样，王助理真的很敬业啊。城主早就该让她转正了。”'
+        ],
+        highlights: []
+      },
+      '蛇胆': {
+        displayName: '蛇胆',
+        paragraphs: [
+          '“他妈的哪来的蛇！我好端端睡着，被窝里冒出一条毒蛇，等我反应过来就被咬了好几口。我知道这种蛇可以用蛇胆解毒，我抓住它，被它咬着下巴也要抠开它的蛇胆！”',
+          '“我多想活下来。蛇胆就在我嘴边，可我的手突然僵住。”',
+          '“我比蛇毒就慢了一步，差一点，我就能活下来了。”'
+        ],
+        highlights: []
+      },
+      '纸币': {
+        displayName: '纸币',
+        paragraphs: [
+          '“鬼来找我了……这里不能待了……”',
+          '“她卖她过来的时候给了一百块，放在我的枕头下面，我一直没告诉她。这些钱够我离开这里。”',
+          '“她不是死透了吗……”',
+          '“她竟然……她竟然穿着死时的衣服……”',
+          '“还对着我笑……”'
+        ],
+        highlights: []
+      },
+      '棉鞋': {
+        displayName: '棉鞋',
+        paragraphs: [
+          '“外面，冷。娘，死。穿娘衣服，爹高兴。”',
+          '“脚冷。姐姐，指路，她家。有死人，死蛇。”',
+          '“死人鞋子，最暖和。”'
+        ],
+        highlights: ['穿娘衣服，爹高兴', '有死人，死蛇']
+      },
+      '钥匙': {
+        displayName: '钥匙',
+        paragraphs: [
+          '“来楠脑子坏了，但能嫁人，也算是我家孩子。”',
+          '“以前我们怕她丢人，把她在屋子里关了很多年。我拿钥匙解开她的镣铐，让她帮我抬她娘的尸体去埋了。我去找个草席的功夫，这死丫头不见了。”'
+        ],
+        highlights: ['来楠', '让她帮我抬她娘的尸体去埋了']
+      },
+      '护身符': {
+        displayName: '护身符',
+        paragraphs: [
+          '“我的亲生父母为我求的，我相信这么多年的运气，都是来源于它。”',
+          '“我来到这里，本来也是养大当别人老婆的命。但我偏偏能看见一些东西，被上一代神婆收为徒弟。久而久之，所有人都有求于我，我说什么他们信什么。”',
+          '“不知道哪一天起，我不再是被卖来卖去的东西。村长让我来对接村里的买卖事宜，谁家要老婆还是孩子，都报到我这里。每隔一段时间，我就可以坐村长的车出去看货。我比他们所有人都自由，还赚了一笔又一笔。”',
+          '“这里很好，众人愚昧，与世隔绝，破四旧的风都吹不进来。”',
+          '“在我们这里，只有鬼，没有神。只有臣服，没有敬畏。”'
+        ],
+        highlights: []
+      }
+    };
+
+    function getState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+      return { inventory: [], inventoryMeta: {}, evidence: {}, locked: {}, unlocked: {}, visitedScenes: {}, chatState: null };
+    }
+
+    function saveState(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function renderTooltipHTML(itemKey) {
+      const data = ITEM_DATA[itemKey];
+      if (!data) return '';
+      const state = getState();
+      let allParagraphs = data.paragraphs || [];
+      let allHighlights = data.highlights || [];
+      if (data.unlockData && state.unlocked && state.unlocked[itemKey]) {
+        allParagraphs = allParagraphs.concat(data.unlockData.paragraphs);
+        allHighlights = allHighlights.concat(data.unlockData.highlights || []);
+      }
+      return allParagraphs.map((p, i) => {
+        let prefix = i === 0 ? '【' : '';
+        let suffix = i === allParagraphs.length - 1 ? '】' : '';
+        let text = prefix + '「' + p + '」' + suffix;
+        return '<p>' + applyHighlights(text, allHighlights) + '</p>';
+      }).join('');
+    }
+
+    function renderSlotTooltipHTML(itemKey) {
+      const data = ITEM_DATA[itemKey];
+      if (!data) return '';
+      const state = getState();
+      let allParagraphs = data.paragraphs || [];
+      let allHighlights = data.highlights || [];
+      if (data.unlockData && state.unlocked && state.unlocked[itemKey]) {
+        allParagraphs = allParagraphs.concat(data.unlockData.paragraphs);
+        allHighlights = allHighlights.concat(data.unlockData.highlights || []);
+      }
+      return allParagraphs.map((p) => {
+        return '<p>' + applyHighlights(p, allHighlights) + '</p>';
+      }).join('');
+    }
+
+    function applyHighlights(text, highlights) {
+      if (!highlights || highlights.length === 0) return text;
+      let result = text;
+      highlights.forEach(h => {
+        result = result.split(h).join('<strong style="color:rgba(125,243,255,0.95)">' + h + '</strong>');
+      });
+      return result;
+    }
+
+    // Elements
+    const sceneImg = document.getElementById('sceneImg');
+    const sceneWrapper = document.getElementById('sceneWrapper');
+    const hotspotContainer = document.getElementById('hotspotContainer');
+    const backArrow = document.getElementById('backArrow');
+    const hubSwitcher = document.getElementById('hubSwitcher');
+    const sceneArrowLeft = document.getElementById('sceneArrowLeft');
+    const sceneArrowRight = document.getElementById('sceneArrowRight');
+    const itemSlots = document.querySelectorAll('.item-slot');
+    const textOverlay = document.getElementById('textOverlay');
+    const textBox = document.getElementById('textBox');
+    const toastEl = document.getElementById('toast');
+
+    /* chat DOM refs */
+    const chatScreen = document.getElementById('chatScreen');
+    const chatHeaderLeft = document.getElementById('chatHeaderLeft');
+    const chatHeaderRight = document.getElementById('chatHeaderRight');
+    const chatHeaderTitle = document.getElementById('chatHeaderTitle');
+    const chatListPanel = document.getElementById('chatListPanel');
+    const chatMsgPanel = document.getElementById('chatMsgPanel');
+    const chatMsgBody = document.getElementById('chatMsgBody');
+    const chatInput = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const cNiu = document.getElementById('cNiu');
+    const cMa = document.getElementById('cMa');
+    const cGroup = document.getElementById('cGroup');
+    const niuUnread = document.getElementById('niuUnread');
+    const maUnreadSlot = document.getElementById('maUnreadSlot');
+    const groupUnreadSlot = document.getElementById('groupUnreadSlot');
+
+    let currentScene = 'scence1';
+    let selectedItem = null;
+
+    /* ===== 鬼才信聊天系统（静态历史记录） ===== */
+    let currentChatKey = null;
+    let chatNetSeconds = 0;
+    let chatNetTimer = null;
+
+    const chatState = {
+      niu: {
+        displayName: '牛大人',
+        messages: [
+          { side: 'them', text: '王助理，下五子棋吗？' },
+          { side: 'me', text: '牛大人，城主去黄泉述职，可未曾说给你我放假啊。' },
+          { side: 'them', text: '怕什么，有几个掌案吏还趁机还阳找自己的老情人了。我们就下一盘惊险刺激的五子棋，哪里过分了？' },
+          { side: 'me', text: '那好' },
+          { side: 'them', text: '你跟老马说一声' }
+        ],
+        unread: 0
+      },
+      ma: {
+        displayName: '城主 旻狱',
+        messages: [
+          { side: 'me', text: '今日未时，老牛家院子，五子棋' },
+          { side: 'them', text: '吾去黄泉述职，可未曾说给尔等放假' },
+          { side: 'me', text: '大人恕罪！我只是为牛头马面传递消息，不小心发错了！我也劝导了他二人，奈何他们不听啊！' },
+          { side: 'them', text: '王微。' },
+          { side: 'them', text: '吾有事找你办。若办得好，你便是戮判城正式官吏。' },
+          { side: 'them', text: '现在，速速前去戮判堂。' }
+        ],
+        unread: 0
+      },
+      group: {
+        displayName: '牛马王奋斗群',
+        messages: [],
+        unread: 0
+      }
+    };
+
+    function chatTs() {
+      const mm = String(Math.floor(chatNetSeconds / 60)).padStart(2, '0');
+      const ss = String(chatNetSeconds % 60).padStart(2, '0');
+      return mm + ':' + ss;
+    }
+
+    function syncChatState() {
+      const state = getState();
+      state.chatState = {
+        niu: { messages: chatState.niu.messages, unread: chatState.niu.unread },
+        ma: { messages: chatState.ma.messages, unread: chatState.ma.unread },
+        group: { messages: chatState.group.messages, unread: chatState.group.unread, visible: cGroup.style.display !== 'none' }
+      };
+      saveState(state);
+    }
+
+    function loadChatState() {
+      const state = getState();
+      if (state.chatState) {
+        if (state.chatState.niu) {
+          chatState.niu.messages = state.chatState.niu.messages || chatState.niu.messages;
+          chatState.niu.unread = state.chatState.niu.unread || 0;
+        }
+        if (state.chatState.ma) {
+          chatState.ma.messages = state.chatState.ma.messages || chatState.ma.messages;
+          chatState.ma.unread = state.chatState.ma.unread || 0;
+        }
+        if (state.chatState.group) {
+          chatState.group.messages = state.chatState.group.messages || [];
+          chatState.group.unread = state.chatState.group.unread || 0;
+          if (state.chatState.group.visible) {
+            cGroup.style.display = 'flex';
+          }
+        }
+      }
+    }
+
+    function resetChatClock() {
+      if (chatNetTimer) clearInterval(chatNetTimer);
+      chatNetSeconds = 0;
+      chatNetTimer = setInterval(() => { chatNetSeconds++; }, 1000);
+    }
+
+    function setChatListHeader() {
+      chatHeaderLeft.textContent = '★';
+      chatHeaderRight.textContent = '＋';
+      chatHeaderTitle.textContent = '鬼才信';
+    }
+
+    function setChatMsgHeader(title) {
+      chatHeaderLeft.innerHTML = '<span style="font-size:16px;">↩</span>';
+      chatHeaderRight.textContent = '···';
+      chatHeaderTitle.textContent = title;
+    }
+
+    function markChatRead(threadKey) {
+      chatState[threadKey].unread = 0;
+      refreshChatUnreadUI(threadKey);
+      syncChatState();
+    }
+
+    function bumpChatUnread(threadKey) {
+      if (chatScreen.dataset.view === 'chat' && currentChatKey === threadKey) return;
+      chatState[threadKey].unread += 1;
+      refreshChatUnreadUI(threadKey);
+    }
+
+    function refreshChatUnreadUI(threadKey) {
+      if (threadKey === 'niu') {
+        niuUnread.style.display = chatState.niu.unread > 0 ? 'grid' : 'none';
+        niuUnread.textContent = String(Math.min(99, chatState.niu.unread));
+      }
+      if (threadKey === 'ma') {
+        let badge = maUnreadSlot.querySelector('.chat-unread-badge');
+        if (chatState.ma.unread > 0) {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'chat-unread-badge';
+            maUnreadSlot.replaceChildren(badge);
+          }
+          badge.textContent = String(Math.min(99, chatState.ma.unread));
+        } else {
+          maUnreadSlot.replaceChildren();
+          const spacer = document.createElement('div');
+          spacer.style.width = '10px';
+          spacer.style.height = '10px';
+          maUnreadSlot.appendChild(spacer);
+        }
+      }
+      if (threadKey === 'group') {
+        let badge = groupUnreadSlot.querySelector('.chat-unread-badge');
+        if (chatState.group.unread > 0) {
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'chat-unread-badge';
+            groupUnreadSlot.replaceChildren(badge);
+          }
+          badge.textContent = String(Math.min(99, chatState.group.unread));
+        } else {
+          groupUnreadSlot.replaceChildren();
+          const spacer = document.createElement('div');
+          spacer.style.width = '10px';
+          spacer.style.height = '10px';
+          groupUnreadSlot.appendChild(spacer);
+        }
+      }
+    }
+
+    function updateChatContactPreview(threadKey) {
+      const node = { niu: cNiu, ma: cMa, group: cGroup }[threadKey];
+      if (!node) return;
+      const sub = node.querySelector('.chat-contact-sub');
+      const last = chatState[threadKey].messages.at(-1);
+      const plain = last ? last.text.replace(/\n/g, ' ').slice(0, 20) : '';
+      if (sub) sub.textContent = plain || '（暂无新消息）';
+    }
+
+    function showChatList() {
+      currentChatKey = null;
+      chatScreen.dataset.view = 'list';
+      setChatListHeader();
+      resetChatClock();
+      ['niu', 'ma', 'group'].forEach(k => updateChatContactPreview(k));
+    }
+
+    function openChat(threadKey) {
+      currentChatKey = threadKey;
+      chatScreen.dataset.view = 'chat';
+      setChatMsgHeader(chatState[threadKey].displayName);
+      markChatRead(threadKey);
+      renderChat(threadKey);
+    }
+
+    function addChatMessage(threadKey, side, text, tsText) {
+      chatState[threadKey].messages.push({ side, text, tsText });
+      updateChatContactPreview(threadKey);
+      if (!(chatScreen.dataset.view === 'chat' && currentChatKey === threadKey)) {
+        bumpChatUnread(threadKey);
+      }
+      syncChatState();
+    }
+
+    function renderChat(threadKey) {
+      chatMsgBody.innerHTML = '';
+      const msgs = chatState[threadKey].messages;
+      for (const m of msgs) {
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-msg ' + m.side;
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ' + m.side;
+        if (m.side === 'aside') bubble.classList.add('aside');
+        bubble.textContent = m.text;
+        wrap.appendChild(bubble);
+        const ts = document.createElement('div');
+        ts.className = 'chat-ts';
+        ts.textContent = m.tsText || '';
+        wrap.appendChild(ts);
+        chatMsgBody.appendChild(wrap);
+      }
+      chatMsgBody.scrollTop = chatMsgBody.scrollHeight;
+    }
+
+    function triggerGroupChat() {
+      const state = getState();
+      if (state.groupChatTriggered) return;
+      state.groupChatTriggered = true;
+      saveState(state);
+      cGroup.style.display = 'flex';
+      addChatMessage('group', 'aside', '老马将你拉入新群聊', chatTs());
+      setTimeout(() => addChatMessage('group', 'them', '@王微 死亡人数又增加了', chatTs()), 1200);
+      setTimeout(() => addChatMessage('group', 'them', '除了那八人死后的第二天，也就是正月十七日，有三十一人在村长葬礼上中毒而死。', chatTs()), 2400);
+      setTimeout(() => addChatMessage('group', 'me', '你们可知道是什么毒？', chatTs()), 3600);
+      setTimeout(() => addChatMessage('group', 'them', '说来蹊跷，此毒尚未查出来因，像是专门用毒之人所制。', chatTs()), 4800);
+      syncChatState();
+    }
+
+    function checkFirstLoginGroup() {
+      const state = getState();
+      if (!state.firstLoginChat) {
+        state.firstLoginChat = true;
+        saveState(state);
+        cGroup.style.display = 'flex';
+        addChatMessage('group', 'aside', '老马将你拉入新群聊', chatTs());
+        chatState.group.unread = 1;
+        refreshChatUnreadUI('group');
+        updateChatContactPreview('group');
+        syncChatState();
+      }
+    }
+
+    const SCENE_CONFIG = {
+      scence1: {
+        type: 'hub',
+        image: 'assets/scence1.png',
+        hotspots: [
+          { coords: { x1: 4, y1: 1122, x2: 447, y2: 1248 }, target: 'from_well' },
+          { coords: { x1: 1195, y1: 1007, x2: 1467, y2: 1404 }, target: 'snake' },
+          { coords: { x1: 1555, y1: 857, x2: 1788, y2: 1283 }, target: 'dog' },
+          { coords: { x1: 181, y1: 844, x2: 373, y2: 1074 }, target: 'chickenhome' },
+          { coords: { x1: 581, y1: 1003, x2: 844, y2: 1219 }, itemKey: '??' }
+        ]
+      },
+      scence2: {
+        type: 'hub',
+        image: 'assets/scence2.png',
+        hotspots: [
+          { coords: { x1: 209, y1: 896, x2: 307, y2: 1052 }, target: 'from_nongyao' },
+          { coords: { x1: 0, y1: 395, x2: 158, y2: 861 }, target: 'window' },
+          { coords: { x1: 2030, y1: 431, x2: 2153, y2: 812 }, target: 'window' },
+          { coords: { x1: 850, y1: 764, x2: 1315, y2: 848 }, target: 'shentai' },
+          { coords: { x1: 980, y1: 383, x2: 1186, y2: 638 }, target: 'linhuaner' },
+          { coords: { x1: 1302, y1: 918, x2: 1567, y2: 1094 }, target: 'desk' },
+          { coords: { x1: 1392, y1: 772, x2: 1542, y2: 875 }, target: 'zhangshunhua' },
+          { coords: { x1: 627, y1: 762, x2: 824, y2: 888 }, target: 'tv' }
+        ]
+      },
+      from_well: {
+        type: 'sub',
+        parent: 'scence1',
+        image: 'assets/from well.png',
+        hotspots: [
+          { coords: { x1: 550, y1: 411, x2: 1132, y2: 1060 }, itemKey: '碎手镯' },
+          { coords: { x1: 1390, y1: 452, x2: 1861, y2: 1073 }, itemKey: '红包' }
+        ]
+      },
+      dog: {
+        type: 'sub',
+        parent: 'scence1',
+        image: 'assets/dog.png',
+        hotspots: [
+          { coords: { x1: 1413, y1: 986, x2: 1503, y2: 1186 }, itemKey: '哨子' },
+          { coords: { x1: 643, y1: 964, x2: 961, y2: 1218 }, itemKey: '铁锹-A' },
+          { coords: { x1: 1741, y1: 1100, x2: 1783, y2: 1178 }, itemKey: '狗牙吊坠' }
+        ]
+      },
+      chickenhome: {
+        type: 'sub',
+        parent: 'scence1',
+        image: 'assets/chickenhome.png',
+        hotspots: [
+          { coords: { x1: 1018, y1: 47, x2: 1160, y2: 1035 }, itemKey: '钢剑' },
+          { coords: { x1: 660, y1: 1048, x2: 1553, y2: 1439 }, itemKey: '黑火药' },
+          { coords: { x1: 1228, y1: 776, x2: 1309, y2: 956 }, itemKey: '钉子' }
+        ]
+      },
+      from_nongyao: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/from nongyao.png',
+        hotspots: [
+          { coords: { x1: 690, y1: 484, x2: 1446, y2: 865 }, itemKey: '???' },
+          { coords: { x1: 1608, y1: 1504, x2: 2501, y2: 1753 }, itemKey: '梳子' },
+          { coords: { x1: 622, y1: 1066, x2: 1077, y2: 1384 }, itemKey: '白糖' }
+        ]
+      },
+      window: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/window.png',
+        hotspots: [
+          { coords: { x1: 569, y1: 906, x2: 721, y2: 1043 }, itemKey: '诱蛇神药' },
+          { coords: { x1: 83, y1: 342, x2: 569, y2: 780 }, itemKey: '盐巴和冰镐' },
+          { coords: { x1: 1441, y1: 918, x2: 1635, y2: 1035 }, itemKey: '收据', password: '19910228' }
+        ]
+      },
+      snake: {
+        type: 'sub',
+        parent: 'scence1',
+        image: 'assets/snake.png',
+        hotspots: [
+          { coords: { x1: 984, y1: 406, x2: 1276, y2: 776 }, itemKey: '《伊索寓言》' },
+          { coords: { x1: 983, y1: 784, x2: 1379, y2: 1208 }, itemKey: '棉袄' }
+        ]
+      },
+      shentai: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/shentai.png',
+        hotspots: [
+          { coords: { x1: 591, y1: 294, x2: 2015, y2: 908 }, itemKey: '干馒头' },
+          { coords: { x1: 243, y1: 446, x2: 740, y2: 846 }, target: 'shentai2' }
+        ]
+      },
+      shentai2: {
+        type: 'sub',
+        parent: 'shentai',
+        image: 'assets/shentai2.png',
+        hotspots: [
+          { coords: { x1: 243, y1: 446, x2: 740, y2: 846 }, itemKey: '鸡毛' }
+        ]
+      },
+      linhuaner: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/linhuaner.png',
+        hotspots: []
+      },
+      linhuaner2: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/linhuaner2.png',
+        hotspots: [
+          { coords: { x1: 531, y1: 387, x2: 841, y2: 829 }, itemKey: '纸币' },
+          { coords: { x1: 1291, y1: 429, x2: 1672, y2: 898 }, itemKey: '纸币' },
+          { coords: { x1: 801, y1: 929, x2: 1301, y2: 1020 }, itemKey: '棉鞋' }
+        ]
+      },
+      desk: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/desk.png',
+        hotspots: [
+          { coords: { x1: 1113, y1: 568, x2: 1453, y2: 668 }, itemKey: '钥匙' },
+          { coords: { x1: 663, y1: 238, x2: 961, y2: 450 }, itemKey: '护身符' }
+        ]
+      },
+      zhangshunhua: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/zhangshuihua.png',
+        hotspots: [
+          { coords: { x1: 358, y1: 285, x2: 504, y2: 334 }, type: 'input', correct: '张舜华', hint: '请输入姓名', placeholder: '输入姓名', target: 'zhangshunhua2' }
+        ]
+      },
+      zhangshunhua2: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/zhangshunhua2.png',
+        hotspots: [
+          { coords: { x1: 507, y1: 654, x2: 796, y2: 935 }, itemKey: '电话圈发绳' },
+          { coords: { x1: 936, y1: 664, x2: 1238, y2: 932 }, itemKey: '馒头' },
+          { coords: { x1: 1393, y1: 672, x2: 1659, y2: 938 }, itemKey: '方向盘' }
+        ]
+      },
+      tv: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/tv to do.jpg',
+        hotspots: []
+      },
+      letter1: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/letter1.png',
+        hotspots: []
+      },
+      letter2: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/letter2-1.png',
+        letterPages: ['assets/letter2-1.png', 'assets/letter2-2.png', 'assets/letter2-3.png'],
+        hotspots: []
+      },
+      letter3: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/letter3-1.png',
+        letterPages: ['assets/letter3-1.png', 'assets/letter3-2.png'],
+        hotspots: []
+      },
+      letter4: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/letter4-1.png',
+        letterPages: ['assets/letter4-1.png', 'assets/letter4-2.png', 'assets/letter4-3.png', 'assets/letter4-4.png'],
+        hotspots: []
+      },
+      letter5: {
+        type: 'sub',
+        parent: 'scence2',
+        image: 'assets/letter5-1.png',
+        letterPages: ['assets/letter5-1.png', 'assets/letter5-2.png', 'assets/letter5-3.png'],
+        hotspots: []
+      }
+    };
+
+    function positionHotspot(container, img, hotspot, coords) {
+      const imgRect = img.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const scaleX = imgRect.width / img.naturalWidth;
+      const scaleY = imgRect.height / img.naturalHeight;
+      const left = imgRect.left - containerRect.left + coords.x1 * scaleX;
+      const top = imgRect.top - containerRect.top + coords.y1 * scaleY;
+      const width = (coords.x2 - coords.x1) * scaleX;
+      const height = (coords.y2 - coords.y1) * scaleY;
+      hotspot.style.left = left + 'px';
+      hotspot.style.top = top + 'px';
+      hotspot.style.width = width + 'px';
+      hotspot.style.height = height + 'px';
+    }
+
+    function setupHotspots(sceneName) {
+      hotspotContainer.innerHTML = '';
+      const container = sceneWrapper.querySelector('.scene-container');
+      const configs = SCENE_CONFIG[sceneName].hotspots || [];
+
+      // linhuaner：点击任意区域进入 linhuaner2
+      if (sceneName === 'linhuaner') {
+        const clickHandler = () => {
+          switchScene('linhuaner2');
+          sceneImg.removeEventListener('click', clickHandler);
+        };
+        sceneImg.addEventListener('click', clickHandler);
+      }
+
+      // 进入 linhuaner2 后标记已访问，下次 scence2 显示 scence2-1.png
+      if (sceneName === 'linhuaner2') {
+        const state = getState();
+        if (!state.visitedScenes) state.visitedScenes = {};
+        if (!state.visitedScenes.linhuaner2) {
+          state.visitedScenes.linhuaner2 = true;
+          saveState(state);
+        }
+      }
+
+      configs.forEach((cfg) => {
+        if (cfg.type === 'input') {
+          const el = document.createElement('div');
+          el.className = 'hotspot';
+          hotspotContainer.appendChild(el);
+          positionHotspot(container, sceneImg, el, cfg.coords);
+
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showPasswordInput(e.clientX, e.clientY, cfg.hint || '', cfg.correct, () => {
+              switchScene(cfg.target);
+            }, cfg.placeholder);
+          });
+          return;
+        }
+
+        const el = document.createElement('div');
+        el.className = 'hotspot';
+        hotspotContainer.appendChild(el);
+
+        const sceneConfig = SCENE_CONFIG[sceneName];
+        if (sceneConfig.type === 'hub') {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (cfg.target === 'from_well' && selectedItem === '???') {
+              const state = getState();
+              const idx = state.inventory.indexOf('???');
+              if (idx !== -1) {
+                state.inventory[idx] = '一碗水';
+                saveState(state);
+                renderInventory();
+                selectedItem = null;
+                showDialog(ITEM_DATA['一碗水'].paragraphs, () => {
+                  showToast('获得物品 +1');
+                  switchScene(cfg.target);
+                });
+              } else {
+                switchScene(cfg.target);
+              }
+            } else if (cfg.target === 'tv') {
+              const correctCount = countCorrectEvidence();
+              const state = getState();
+              if (correctCount >= 25) {
+                state.letterPage = 0;
+                saveState(state);
+                switchScene('letter5');
+              } else if (correctCount >= 20) {
+                state.letterPage = 0;
+                saveState(state);
+                switchScene('letter4');
+              } else if (correctCount >= 15) {
+                state.letterPage = 0;
+                saveState(state);
+                switchScene('letter3');
+              } else if (correctCount >= 10) {
+                state.letterPage = 0;
+                saveState(state);
+                switchScene('letter2');
+              } else if (correctCount >= 5) {
+                switchScene('letter1');
+              } else {
+                showToast('您暂无信件');
+              }
+            } else if (cfg.target) {
+              switchScene(cfg.target);
+            } else if (cfg.itemKey) {
+              collectItem(cfg.itemKey);
+            }
+          });
+        } else {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (sceneName === 'shentai' && cfg.target && selectedItem === '??') {
+              switchScene(cfg.target);
+            } else if (cfg.password) {
+              showPasswordInput(e.clientX, e.clientY, '日期', cfg.password, () => {
+                collectItem(cfg.itemKey);
+              });
+            } else if (sceneName === 'linhuaner2' && cfg.itemKey === '纸币' && !getState().jumpScared) {
+              doJumpScare(() => {
+                collectItem(cfg.itemKey);
+              });
+            } else if (sceneName === 'shentai2' && cfg.itemKey === '鸡毛') {
+              collectItem(cfg.itemKey);
+              const state = getState();
+              const idx = state.inventory.indexOf('??');
+              if (idx !== -1) {
+                state.inventory.splice(idx, 1);
+                saveState(state);
+                renderInventory();
+              }
+            } else if (cfg.itemKey) {
+              collectItem(cfg.itemKey);
+            }
+          });
+        }
+
+        positionHotspot(container, sceneImg, el, cfg.coords);
+
+        // 选中诱蛇神药时，hover snake 热区显示“引诱”按钮
+        if (sceneName === 'scence1' && cfg.target === 'snake') {
+          el.addEventListener('mouseenter', () => {
+            if (selectedItem !== '诱蛇神药') return;
+            if (el.querySelector('.interaction-btn')) return;
+            const btn = document.createElement('button');
+            btn.className = 'interaction-btn';
+            btn.textContent = '引诱';
+            btn.style.cssText = 'position:absolute;padding:4px 12px;border-radius:6px;border:1px solid rgba(125,243,255,0.55);background:rgba(0,0,0,0.75);color:rgba(125,243,255,0.95);font-size:12px;cursor:pointer;font-family:inherit;letter-spacing:0.1em;pointer-events:auto;z-index:3;left:50%;bottom:100%;margin-bottom:4px;transform:translateX(-50%);white-space:nowrap;';
+            el.appendChild(btn);
+
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const state = getState();
+              if (state.inventory.length >= itemSlots.length) {
+                showToast('物品栏已满，可将物品送至档案台');
+                return;
+              }
+              state.inventory.push('蛇胆');
+              saveState(state);
+              renderInventory();
+              selectedItem = null;
+              setupHotspots('scence1');
+              showToast('获得物品 +1');
+            });
+          });
+
+          el.addEventListener('mouseleave', () => {
+            const btn = el.querySelector('.interaction-btn');
+            if (btn) btn.remove();
+          });
+        }
+      });
+    }
+
+    function repositionHotspots() {
+      setupHotspots(currentScene);
+    }
+
+    function getSceneImage(sceneName) {
+      if (sceneName === 'scence2') {
+        const state = getState();
+        if (state.visitedScenes && state.visitedScenes.linhuaner2) {
+          return 'assets/scence2-1.png';
+        }
+      }
+      return SCENE_CONFIG[sceneName].image;
+    }
+
+    function switchScene(sceneName) {
+      currentScene = sceneName;
+      const config = SCENE_CONFIG[sceneName];
+      sceneImg.src = getSceneImage(sceneName);
+
+      const onLoad = () => {
+        requestAnimationFrame(() => {
+          setupHotspots(sceneName);
+          const isHub = config.type === 'hub';
+          backArrow.style.display = isHub ? 'none' : 'block';
+          hubSwitcher.style.display = isHub ? 'block' : 'none';
+
+          // scene switch arrows visibility
+          if (sceneArrowLeft && sceneArrowRight) {
+            const atScence1 = sceneName === 'scence1';
+            const atScence2 = sceneName === 'scence2';
+            sceneArrowLeft.style.display = atScence2 ? 'flex' : 'none';
+            sceneArrowRight.style.display = atScence1 ? 'flex' : 'none';
+          }
+
+          // 信件翻页按钮
+          const oldNav = sceneWrapper.querySelector('.letter-nav');
+          if (oldNav) oldNav.remove();
+          if (config.letterPages && config.letterPages.length > 1) {
+            const nav = document.createElement('div');
+            nav.className = 'letter-nav';
+            nav.style.cssText = 'position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;gap:16px;z-index:5;';
+            const leftBtn = document.createElement('button');
+            leftBtn.textContent = '←';
+            leftBtn.style.cssText = 'width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:18px;cursor:pointer;';
+            const rightBtn = document.createElement('button');
+            rightBtn.textContent = '→';
+            rightBtn.style.cssText = 'width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:18px;cursor:pointer;';
+            const state = getState();
+            let page = state.letterPage || 0;
+            const update = () => {
+              sceneImg.src = config.letterPages[page];
+              leftBtn.style.opacity = page <= 0 ? '0.3' : '1';
+              leftBtn.style.pointerEvents = page <= 0 ? 'none' : 'auto';
+              rightBtn.style.opacity = page >= config.letterPages.length - 1 ? '0.3' : '1';
+              rightBtn.style.pointerEvents = page >= config.letterPages.length - 1 ? 'none' : 'auto';
+            };
+            leftBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (page > 0) { page--; state.letterPage = page; saveState(state); update(); }
+            });
+            rightBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (page < config.letterPages.length - 1) { page++; state.letterPage = page; saveState(state); update(); }
+            });
+            nav.appendChild(leftBtn);
+            nav.appendChild(rightBtn);
+            sceneWrapper.appendChild(nav);
+            update();
+          }
+        });
+        sceneImg.onload = null;
+      };
+
+      sceneImg.onload = onLoad;
+
+      if (sceneImg.complete && sceneImg.naturalWidth > 0) {
+        onLoad();
+      }
+    }
+
+    backArrow.addEventListener('click', () => {
+      const config = SCENE_CONFIG[currentScene];
+      if (config.parent) {
+        switchScene(config.parent);
+      }
+    });
+
+    hubSwitcher.addEventListener('click', () => {
+      const next = currentScene === 'scence1' ? 'scence2' : 'scence1';
+      switchScene(next);
+    });
+
+    if (sceneArrowLeft) {
+      sceneArrowLeft.addEventListener('click', () => {
+        if (currentScene === 'scence2') switchScene('scence1');
+      });
+    }
+
+    if (sceneArrowRight) {
+      sceneArrowRight.addEventListener('click', () => {
+        if (currentScene === 'scence1') switchScene('scence2');
+      });
+    }
+
+    window.addEventListener('resize', () => {
+      if (sceneImg.naturalWidth) {
+        setupHotspots(currentScene);
+      }
+    });
+
+    function doJumpScare(onEnd) {
+      const state = getState();
+      state.jumpScared = true;
+      saveState(state);
+
+      // 闪烁
+      const flash = document.createElement('div');
+      flash.style.cssText = 'position:fixed;inset:0;z-index:999;background:#fff;opacity:0;pointer-events:none;';
+      document.body.appendChild(flash);
+      flash.animate([{opacity:0}, {opacity:1}, {opacity:0}], {duration:200, iterations:3});
+
+      // 放大出现
+      setTimeout(() => {
+        const style = document.createElement('style');
+        style.textContent = '@keyframes zoomIn{from{transform:scale(0.1);opacity:0}to{transform:scale(1);opacity:1}}';
+        document.head.appendChild(style);
+
+        const img = document.createElement('img');
+        img.src = 'assets/lainan.png';
+        img.style.cssText = 'position:fixed;inset:0;z-index:998;width:100vw;height:100vh;object-fit:contain;background:#000;animation:zoomIn 0.5s ease-out;';
+        document.body.appendChild(img);
+
+        setTimeout(() => {
+          img.remove();
+          style.remove();
+          if (onEnd) onEnd();
+        }, 1500);
+      }, 300);
+    }
+
+    function countCorrectEvidence() {
+      const state = getState();
+      let count = 0;
+      if (state.evidenceLocked) {
+        for (const code in state.evidenceLocked) {
+          for (const slot of state.evidenceLocked[code]) {
+            if (slot) count++;
+          }
+        }
+      }
+      return count;
+    }
+
+    function showDialog(paragraphs, onEnd) {
+      const existing = document.getElementById('dialogBox');
+      if (existing) existing.remove();
+
+      const dialogBox = document.createElement('div');
+      dialogBox.id = 'dialogBox';
+      dialogBox.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:150;padding:24px 32px;background:rgba(10,12,22,0.96);border-top:1px solid rgba(255,255,255,0.2);font-size:15px;line-height:1.9;letter-spacing:0.06em;color:rgba(255,255,255,0.92);cursor:pointer;';
+      dialogBox.innerHTML = '<div id="dialogText" style="min-height:1.9em;"></div><div id="dialogHint" style="margin-top:12px;font-size:12px;color:rgba(255,255,255,0.5);animation:pulse 1.2s ease-in-out infinite;">点击继续</div>';
+
+      const style = document.createElement('style');
+      style.textContent = '@keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}';
+      dialogBox.appendChild(style);
+      document.body.appendChild(dialogBox);
+
+      let index = 0;
+      const dialogText = document.getElementById('dialogText');
+
+      const showNext = () => {
+        if (index >= paragraphs.length) {
+          dialogBox.remove();
+          if (onEnd) onEnd();
+          return;
+        }
+        dialogText.textContent = paragraphs[index];
+        index++;
+        if (index >= paragraphs.length) {
+          document.getElementById('dialogHint').textContent = '点击结束';
+        }
+      };
+
+      showNext();
+      dialogBox.addEventListener('click', showNext);
+    }
+
+    function showToast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.add('active');
+      setTimeout(() => {
+        toastEl.classList.remove('active');
+      }, 1500);
+    }
+
+    function showPasswordInput(x, y, hint, correctPassword, onCorrect, placeholder) {
+      const existing = document.querySelector('.password-popup');
+      if (existing) existing.remove();
+
+      const popup = document.createElement('div');
+      popup.className = 'password-popup';
+      popup.style.left = Math.min(x, window.innerWidth - 260) + 'px';
+      popup.style.top = Math.min(y + 20, window.innerHeight - 160) + 'px';
+      popup.innerHTML = `
+        <div class="password-hint">${hint ? '提示：' + hint : ''}</div>
+        <div class="password-row">
+          <input type="text" class="password-input" placeholder="${placeholder || '输入密码'}" />
+          <button class="password-btn">确认</button>
+        </div>
+        <div class="password-error"></div>
+      `;
+      document.body.appendChild(popup);
+
+      const input = popup.querySelector('.password-input');
+      const btn = popup.querySelector('.password-btn');
+      const error = popup.querySelector('.password-error');
+
+      const check = () => {
+        if (input.value.trim() === correctPassword) {
+          popup.remove();
+          onCorrect();
+        } else {
+          error.textContent = '密码错误';
+          input.value = '';
+          input.focus();
+        }
+      };
+
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') check();
+        if (e.key === 'Escape') popup.remove();
+      });
+
+      input.focus();
+
+      const outsideClick = (e) => {
+        if (!popup.contains(e.target)) {
+          popup.remove();
+          document.removeEventListener('click', outsideClick);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', outsideClick), 0);
+    }
+
+    function collectItem(itemKey) {
+      const state = getState();
+      const data = ITEM_DATA[itemKey];
+      if (!data) return;
+      const displayName = data.displayName || itemKey;
+
+      const alreadyHas = state.inventory.includes(displayName);
+
+      if (!alreadyHas) {
+        if (state.inventory.length >= itemSlots.length) {
+          showToast('物品栏已满，可将物品送至档案台');
+          return;
+        }
+        if (itemKey.startsWith('铁锹-')) {
+          state.inventoryMeta['铁锹'] = { source: itemKey.split('-')[1] };
+        }
+        state.inventory.push(displayName);
+        saveState(state);
+        renderInventory();
+        showToast('获得物品 +1');
+        if (itemKey === '碎手镯') {
+          cGroup.style.display = 'flex';
+          triggerGroupChat();
+        }
+      }
+
+      showItemText(itemKey);
+    }
+
+    function showItemText(itemKey) {
+      if (itemKey === '碎手镯') {
+        renderPagedText(itemKey, 0);
+        return;
+      }
+
+      const data = ITEM_DATA[itemKey];
+      const state = getState();
+      textBox.innerHTML = renderTooltipHTML(itemKey);
+
+      // 非翻页物品的未解锁内容处理（如将来有其他需要）
+      if (data.unlockData && !(state.unlocked && state.unlocked[itemKey])) {
+        const unlockDiv = document.createElement('div');
+        unlockDiv.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.15);';
+        unlockDiv.innerHTML = `
+          <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:8px;">提示：输入密码以查看更多内容</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" placeholder="输入密码" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:#fff;font-size:13px;outline:none;font-family:inherit;letter-spacing:0.08em;" />
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid rgba(125,243,255,0.35);background:rgba(125,243,255,0.12);color:rgba(255,255,255,0.92);font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:0.08em;">确认</button>
+          </div>
+          <div class="unlock-error" style="font-size:12px;color:#ff8080;margin-top:6px;min-height:16px;"></div>
+        `;
+        textBox.appendChild(unlockDiv);
+
+        const input = unlockDiv.querySelector('input');
+        const btn = unlockDiv.querySelector('button');
+        const error = unlockDiv.querySelector('.unlock-error');
+
+        const check = () => {
+          if (input.value.trim() === data.unlockData.password) {
+            const s = getState();
+            if (!s.unlocked) s.unlocked = {};
+            s.unlocked[itemKey] = true;
+            saveState(s);
+            showItemText(itemKey);
+          } else {
+            error.textContent = '密码错误';
+            input.value = '';
+            input.focus();
+          }
+        };
+
+        btn.addEventListener('click', check);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') check();
+        });
+        input.focus();
+      }
+
+      textOverlay.classList.add('active');
+    }
+
+    function renderPagedText(itemKey, page) {
+      const data = ITEM_DATA[itemKey];
+      const state = getState();
+      const isUnlocked = state.unlocked && state.unlocked[itemKey];
+
+      let html = '<div style="display:flex;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.15);">';
+      const yiActive = page === 0;
+      html += '<button class="page-tab" data-page="0" style="flex:1;padding:10px 0;text-align:center;font-size:14px;letter-spacing:0.2em;border:none;background:transparent;cursor:pointer;font-family:inherit;color:' + (yiActive ? 'rgba(125,243,255,0.95)' : 'rgba(255,255,255,0.5)') + ';border-bottom:2px solid ' + (yiActive ? 'rgba(125,243,255,0.6)' : 'transparent') + ';">壹</button>';
+      const erActive = page === 1;
+      html += '<button class="page-tab" data-page="1" style="flex:1;padding:10px 0;text-align:center;font-size:14px;letter-spacing:0.2em;border:none;background:transparent;cursor:pointer;font-family:inherit;color:' + (erActive ? 'rgba(125,243,255,0.95)' : 'rgba(255,255,255,0.5)') + ';border-bottom:2px solid ' + (erActive ? 'rgba(125,243,255,0.6)' : 'transparent') + ';">贰</button>';
+      html += '</div>';
+
+      if (page === 0) {
+        data.paragraphs.forEach((p, i) => {
+          let prefix = i === 0 ? '【' : '';
+          let suffix = i === data.paragraphs.length - 1 ? '】' : '';
+          let text = prefix + '「' + p + '」' + suffix;
+          html += '<p>' + applyHighlights(text, data.highlights) + '</p>';
+        });
+      } else {
+        if (!isUnlocked) {
+          html += '<div style="margin-top:20px;">';
+          html += '<div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:12px;">此页内容已锁定，输入密码以查看</div>';
+          html += '<div style="display:flex;gap:8px;">';
+          html += '<input type="text" class="pw-input" placeholder="输入密码" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);color:#fff;font-size:13px;outline:none;font-family:inherit;letter-spacing:0.08em;" />';
+          html += '<button class="pw-btn" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(125,243,255,0.35);background:rgba(125,243,255,0.12);color:rgba(255,255,255,0.92);font-size:13px;cursor:pointer;font-family:inherit;letter-spacing:0.08em;">确认</button>';
+          html += '</div>';
+          html += '<div class="pw-error" style="font-size:12px;color:#ff8080;margin-top:6px;min-height:16px;"></div>';
+          html += '</div>';
+        } else {
+          const up = data.unlockData;
+          up.paragraphs.forEach((p, i) => {
+            let suffix = i === up.paragraphs.length - 1 ? '】' : '';
+            let text = '「' + p + '」' + suffix;
+            html += '<p>' + applyHighlights(text, up.highlights || []) + '</p>';
+          });
+        }
+      }
+
+      textBox.innerHTML = html;
+      textOverlay.classList.add('active');
+
+      textBox.querySelectorAll('.page-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetPage = parseInt(btn.dataset.page);
+          if (targetPage === 1 && !isUnlocked) {
+            renderPagedText(itemKey, 1);
+          } else {
+            renderPagedText(itemKey, targetPage);
+          }
+        });
+      });
+
+      const pwBtn = textBox.querySelector('.pw-btn');
+      if (pwBtn) {
+        const input = textBox.querySelector('.pw-input');
+        const error = textBox.querySelector('.pw-error');
+        const check = () => {
+          if (input.value.trim() === data.unlockData.password) {
+            const s = getState();
+            if (!s.unlocked) s.unlocked = {};
+            s.unlocked[itemKey] = true;
+            saveState(s);
+            renderPagedText(itemKey, 1);
+          } else {
+            error.textContent = '密码错误';
+            input.value = '';
+            input.focus();
+          }
+        };
+        pwBtn.addEventListener('click', check);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') check();
+        });
+        input.focus();
+      }
+    }
+
+    function renderInventory() {
+      const state = getState();
+      itemSlots.forEach(slot => {
+        slot.className = 'item-slot empty';
+        slot.textContent = '';
+        slot.removeAttribute('data-item');
+        slot.removeAttribute('data-key');
+        const oldTip = slot.querySelector('.item-slot-tip');
+        if (oldTip) oldTip.remove();
+      });
+
+      state.inventory.forEach((name, index) => {
+        if (index < itemSlots.length) {
+          const slot = itemSlots[index];
+          slot.classList.remove('empty');
+          slot.classList.add('filled');
+          if (name === selectedItem) {
+            slot.classList.add('selected');
+          }
+          slot.textContent = name;
+          slot.dataset.item = name;
+          const key = Object.keys(ITEM_DATA).find(k => {
+            const d = ITEM_DATA[k];
+            return (d.displayName || k) === name;
+          }) || name;
+          slot.dataset.key = key;
+
+          const tip = document.createElement('div');
+          tip.className = 'item-slot-tip';
+          let tooltipKey = key;
+          if (name === '铁锹') {
+            const source = state.inventoryMeta['铁锹']?.source || 'A';
+            tooltipKey = '铁锹-' + source;
+          }
+          tip.innerHTML = renderSlotTooltipHTML(tooltipKey);
+          slot.appendChild(tip);
+        }
+      });
+    }
+
+    renderInventory();
+
+    document.getElementById('itemGrid').addEventListener('click', (e) => {
+      const slot = e.target.closest('.item-slot');
+      if (!slot) {
+        selectedItem = null;
+        renderInventory();
+        setupHotspots(currentScene);
+        return;
+      }
+
+      if (!slot.dataset.item) {
+        selectedItem = null;
+        renderInventory();
+        setupHotspots(currentScene);
+        return;
+      }
+
+      const itemName = slot.dataset.item;
+      if (selectedItem === itemName) {
+        let itemKey = slot.dataset.key;
+        if (itemName === '铁锹') {
+          const state = getState();
+          const source = state.inventoryMeta['铁锹']?.source || 'A';
+          itemKey = '铁锹-' + source;
+        }
+        selectedItem = null;
+        renderInventory();
+        setupHotspots(currentScene);
+        showItemText(itemKey);
+      } else {
+        selectedItem = itemName;
+        renderInventory();
+        setupHotspots(currentScene);
+
+        if (itemName === '???' || itemName === '诱蛇神药' || itemName === '??') {
+          showToast('已选中「' + itemName + '」');
+        }
+      }
+    });
+
+    textOverlay.addEventListener('click', (e) => {
+      if (e.target === textOverlay) {
+        textOverlay.classList.remove('active');
+      }
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) {
+        renderInventory();
+      }
+    });
+
+    // 初始化进入 scence1
+    switchScene('scence1');
+
+    // ===== 聊天系统初始化 =====
+    loadChatState();
+    refreshChatUnreadUI('niu');
+    refreshChatUnreadUI('ma');
+    refreshChatUnreadUI('group');
+    checkFirstLoginGroup();
+
+    cNiu.addEventListener('click', () => openChat('niu'));
+    cMa.addEventListener('click', () => openChat('ma'));
+    cGroup.addEventListener('click', () => openChat('group'));
+
+    chatHeaderLeft.addEventListener('click', () => {
+      if (chatScreen.dataset.view === 'chat') showChatList();
+    });
+
+    // 聊天发送按钮（仅用于群聊手动回复）
+    chatSendBtn.addEventListener('click', () => {
+      const val = chatInput.value.trim();
+      if (!currentChatKey || !val) return;
+      addChatMessage(currentChatKey, 'me', val, chatTs());
+      renderChat(currentChatKey);
+      chatInput.value = '';
+    });
+
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && chatInput.value.trim()) {
+        chatSendBtn.click();
+      }
+    });
+
+    // 跨页面同步聊天记录
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) {
+        loadChatState();
+        if (currentChatKey) renderChat(currentChatKey);
+        refreshChatUnreadUI('niu');
+        refreshChatUnreadUI('ma');
+        refreshChatUnreadUI('group');
+        ['niu', 'ma', 'group'].forEach(k => updateChatContactPreview(k));
+      }
+    });
+
+    // ===== 开发者调试：按 ESC 一键重置 =====
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // 如果密码弹窗打开，不拦截 Escape（让弹窗自己处理关闭）
+        if (document.querySelector('.password-popup')) return;
+        e.preventDefault();
+        if (confirm('确定要清空本地存档并回到初始状态吗？')) {
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        }
+      }
+    });
+  </script>
+</body>
+</html>

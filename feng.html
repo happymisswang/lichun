@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>立春开场</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cover-wrapper" id="pageWrap">
+    <!-- 背景图 -->
+    <div class="bg-layer"></div>
+    <!-- 鼠标热区 -->
+    <div class="hotzone"></div>
+
+    <!-- 文字与纸人 -->
+    <img src="li.png" alt="立" class="overlay-element char-li" style="width: 150px;">
+    <img src="chun.png" alt="春" class="overlay-element char-chun" style="width: 150px;">
+    <img src="dolls.png" alt="纸人" class="overlay-element paper-dolls" style="width: 400px;">
+
+    <!-- 底部 点击开始提示图 gs.png -->
+    <img src="gs.png" alt="点击任意处开始游戏" class="start-tip" style="width: 600px;">
+  </div>
+
+  <script>
+    const hotzone = document.querySelector('.hotzone');
+    const bg = document.querySelector('.bg-layer');
+    const li = document.querySelector('.char-li');
+    const chun = document.querySelector('.char-chun');
+    const dolls = document.querySelector('.paper-dolls');
+    const wrap = document.getElementById('pageWrap');
+
+    // ========== 原有悬停动画（不变） ==========
+    hotzone.addEventListener('mouseenter', function () {
+      li.style.left = '-15%';
+      li.style.opacity = '0';
+      chun.style.right = '-15%';
+      chun.style.opacity = '0';
+      dolls.style.top = '110%';
+      dolls.style.opacity = '0';
+      bg.style.transform = 'scale(1.04)';
+      bg.style.filter = 'blur(0px)';
+    });
+
+    hotzone.addEventListener('mouseleave', function () {
+      li.style.left = '10%';
+      li.style.opacity = '1';
+      chun.style.right = '10%';
+      chun.style.opacity = '1';
+      dolls.style.top = '60%';
+      dolls.style.opacity = '1';
+      bg.style.transform = 'scale(1)';
+      bg.style.filter = 'blur(3px)';
+    });
+
+    // ========== 点击任意位置跳转游戏 ==========
+    // 把下面 "game.html" 改成你**游戏主页面的文件名**
+    const gameUrl = "kaichang.html"; 
+
+    wrap.addEventListener('click', function(){
+      window.location.href = gameUrl;
+    });
+  </script>
+</body>
+</html>

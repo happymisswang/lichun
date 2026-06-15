@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>戮判城工作系统 - 轮回轨</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "SimSun", "宋体", serif; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      position: relative;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.15;
+      background-image:
+        radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.3) 0, transparent 3px),
+        radial-gradient(circle at 20px 30px, rgba(255, 255, 255, 0.25) 0, transparent 3px),
+        radial-gradient(circle at 40px 10px, rgba(255, 255, 255, 0.2) 0, transparent 3px),
+        radial-gradient(circle at 10px 40px, rgba(255, 255, 255, 0.2) 0, transparent 3px);
+      background-size: 80px 80px;
+      mix-blend-mode: screen;
+    }
+
+    .workspace {
+      position: relative;
+      z-index: 1;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      border-radius: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: none;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ws-tabs {
+      display: flex;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
+      padding: 0;
+      margin: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.25);
+      box-sizing: border-box;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 20;
+    }
+
+    .ws-tab {
+      flex: 1;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      border-radius: 0;
+      border: none;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      background: transparent;
+      cursor: pointer;
+      font-size: 16px;
+      letter-spacing: 0.18em;
+      text-decoration: none;
+      color: inherit;
+      overflow: hidden;
+      transition: flex 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.35s ease, padding 0.3s ease;
+    }
+
+    .ws-tab:last-child { border-right: none; }
+
+    .ws-tab[data-active="true"] {
+      background: rgba(125, 243, 255, 0.08);
+    }
+
+    .ws-tab[data-active="true"] .ws-tab-title {
+      color: rgba(125, 243, 255, 0.95);
+      text-shadow: 0 0 8px rgba(125, 243, 255, 0.25);
+    }
+
+    @font-face {
+      font-family: 'HuiwenMincho';
+      src: url('assets/fonts/Huiwen-mincho.otf') format('opentype'),
+           url('assets/fonts/Huiwen-mincho.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    .ws-tab-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      z-index: 2;
+      font-family: 'HuiwenMincho', "SimSun", "宋体", serif;
+      transition: left 0.45s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .ws-tab-desc {
+      position: absolute;
+      left: 140px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      letter-spacing: 0.06em;
+      line-height: 1.5;
+      opacity: 0;
+      max-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      transition: opacity 0.35s ease 0.08s, max-width 0.5s ease;
+    }
+
+    /* 有任意 tab 被悬停时，非悬停 tab 收缩消失 */
+    .ws-tabs:has(.ws-tab:hover) .ws-tab:not(:hover) {
+      flex: 0;
+      opacity: 0;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .ws-tab:hover .ws-tab-title {
+      left: 20px;
+      transform: translateX(0);
+    }
+
+    .ws-tab:hover .ws-tab-desc {
+      opacity: 1;
+      max-width: calc(100% - 160px);
+    }
+
+    .ws-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+    }
+
+    /* 鬼才信隐藏 */
+    .ws-chat { display: none !important; }
+
+    .ws-main {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 14px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .stage {
+      display: none;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .stage.active { display: flex; }
+
+    /* ===== 11格圆环 ===== */
+    .wheel-wrapper {
+      position: relative;
+      width: 540px;
+      height: 540px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wheel-ring {
+      position: absolute;
+      width: 460px;
+      height: 460px;
+      border-radius: 50%;
+      background-image: url('assets/circle.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 0 18px rgba(125, 243, 255, 0.18));
+    }
+
+    .wheel-slot {
+      position: absolute;
+      width: 86px;
+      height: 38px;
+      left: 50%;
+      top: 50%;
+      margin-left: -43px;
+      margin-top: -19px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wheel-slot-inner {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #fff;
+      letter-spacing: 0.06em;
+      outline: none;
+      padding: 0 4px;
+      text-align: center;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .wheel-slot-inner:focus {
+      border-color: rgba(125, 243, 255, 0.7);
+      box-shadow: 0 0 10px rgba(125, 243, 255, 0.25);
+    }
+
+    .wheel-slot-inner::placeholder { color: rgba(255, 255, 255, 0.25); font-size: 11px; }
+
+    .wheel-inner-ring {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background-image: url('assets/in circle.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 5;
+      cursor: pointer;
+      filter: drop-shadow(0 0 14px rgba(0, 240, 200, 0.22));
+      transition: filter 0.2s ease;
+    }
+
+    .wheel-inner-ring:hover {
+      filter: drop-shadow(0 0 22px rgba(0, 240, 200, 0.4));
+    }
+
+    .hint-text {
+      position: absolute;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    /* ===== 动画 ===== */
+    @keyframes spin-and-zoom {
+      0% { transform: rotate(0deg) scale(1); opacity: 1; }
+      60% { opacity: 1; }
+      100% { transform: rotate(1080deg) scale(6); opacity: 0; }
+    }
+
+    @keyframes flash-white {
+      0% { opacity: 0; }
+      30% { opacity: 1; }
+      70% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .anim-spin-zoom { animation: spin-and-zoom 2s cubic-bezier(0.55, 0, 0.45, 1) forwards; }
+
+    .flash-overlay {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .flash-overlay.animating { animation: flash-white 2.2s ease-in-out forwards; }
+
+    .dark-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 99;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 1.2s ease;
+    }
+
+    .dark-overlay.show { opacity: 1; pointer-events: auto; }
+
+    .dark-text {
+      font-size: 22px;
+      letter-spacing: 0.3em;
+      color: rgba(255, 255, 255, 0.92);
+      text-align: center;
+      opacity: 0;
+      transition: opacity 2s ease 0.6s;
+      text-shadow: 0 0 24px rgba(255, 255, 255, 0.25);
+      line-height: 1.8;
+    }
+
+    .dark-overlay.show .dark-text { opacity: 1; }
+
+    /* ===== 开发者密码弹窗 ===== */
+    .password-popup {
+      position: fixed;
+      z-index: 150;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(10, 12, 22, 0.96);
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .password-hint {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 8px;
+      letter-spacing: 0.08em;
+    }
+
+    .password-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .password-input {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+    }
+
+    .password-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(125, 243, 255, 0.35);
+      background: rgba(125, 243, 255, 0.12);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.08em;
+      transition: background 0.15s;
+    }
+
+    .password-btn:hover {
+      background: rgba(125, 243, 255, 0.22);
+    }
+
+    .password-error {
+      font-size: 12px;
+      color: #ff8080;
+      margin-top: 6px;
+      min-height: 16px;
+      letter-spacing: 0.06em;
+    }
+
+    /* ===== 阶段二：轮回星芒粒子法阵 ===== */
+    #stage2 { overflow: hidden; }
+
+    #stage2.active { display: block; }
+
+    .array-container {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .array-canvas-wrap {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .array-canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .array-ui {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 82px 20px 18px;
+    }
+
+    .array-ui header,
+    .array-ui footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .array-title h1 {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-shadow: 0 0 15px rgba(125, 243, 255, 0.25);
+      font-family: 'HuiwenMincho', "SimSun", "宋体", serif;
+    }
+
+    .array-title p {
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 12px;
+      margin-top: 4px;
+      letter-spacing: 0.06em;
+    }
+
+    .array-status {
+      flex-shrink: 0;
+      background: rgba(10, 12, 22, 0.65);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(125, 243, 255, 0.18);
+      border-radius: 20px;
+      padding: 8px 16px;
+      color: #fff;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+      pointer-events: auto;
+    }
+
+    .array-status-dot {
+      width: 9px;
+      height: 9px;
+      background: #ff3b30;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #ff3b30;
+      transition: all 0.3s;
+    }
+
+    .array-status-dot.active {
+      background: #4cd964;
+      box-shadow: 0 0 10px #4cd964;
+    }
+
+    .array-start-btn {
+      margin-left: 10px;
+      padding: 5px 12px;
+      background: rgba(125, 243, 255, 0.12);
+      border: 1px solid rgba(125, 243, 255, 0.4);
+      color: rgba(255, 255, 255, 0.92);
+      border-radius: 12px;
+      cursor: pointer;
+      pointer-events: auto;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      transition: background 0.2s ease, border-color 0.2s ease;
+      font-family: inherit;
+    }
+
+    .array-start-btn:hover {
+      background: rgba(125, 243, 255, 0.25);
+      border-color: rgba(125, 243, 255, 0.7);
+    }
+
+    .array-status-dot.charging {
+      background: #ffcc00;
+      box-shadow: 0 0 12px #ffcc00;
+      animation: array-pulse 1s infinite alternate;
+    }
+
+    @keyframes array-pulse {
+      from { transform: scale(1); opacity: 0.6; }
+      to { transform: scale(1.3); opacity: 1; }
+    }
+
+    .array-countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 84px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-shadow: 0 0 30px rgba(0, 255, 200, 0.6);
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      font-family: monospace;
+    }
+
+    .array-info {
+      max-width: 360px;
+      background: rgba(10, 12, 22, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 12px 16px;
+      border: 1px solid rgba(125, 243, 255, 0.08);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+
+    .array-info strong {
+      color: rgba(125, 243, 255, 0.95);
+      font-weight: normal;
+    }
+
+    .array-monitor {
+      position: absolute;
+      top: 78px;
+      right: 14px;
+      z-index: 15;
+      background: rgba(12, 12, 18, 0.75);
+      border: 1px solid rgba(125, 243, 255, 0.18);
+      border-radius: 10px;
+      padding: 6px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+
+    .array-monitor canvas {
+      width: 120px;
+      height: 90px;
+      background: #000;
+      border-radius: 6px;
+      transform: scaleX(-1);
+      display: block;
+    }
+
+    .array-loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      transition: opacity 0.5s;
+      pointer-events: none;
+      font-size: 13px;
+    }
+
+    .array-spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(255, 255, 255, 0.06);
+      border-radius: 50%;
+      border-top-color: #00ffcc;
+      animation: array-spin 1s linear infinite;
+    }
+
+    @keyframes array-spin { to { transform: rotate(360deg); } }
+
+    /* ===== 篆体字体（需自行准备字体文件，否则回退隶书/宋体） ===== */
+    @font-face {
+      font-family: 'ZhuanTi';
+      src: url('assets/fonts/ZhuanTi.ttf') format('truetype'),
+           url('assets/fonts/ZhuanTi.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* 隐藏摄像头监控画面 */
+    .array-monitor { display: none !important; }
+
+    /* ===== 六道去向层 ===== */
+    .six-paths-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .six-paths-ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+
+    .path-column {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 108px;
+      height: 54px;
+      margin-left: -54px;
+      margin-top: -27px;
+      background: rgba(20, 70, 92, 0.78);
+      border: 1px solid rgba(125, 243, 255, 0.32);
+      border-radius: 6px;
+      box-shadow: 0 0 16px rgba(0, 180, 220, 0.16), inset 0 0 12px rgba(125, 243, 255, 0.05);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 4px 8px;
+      pointer-events: auto;
+      transition: opacity 0.6s ease, transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+      transform-origin: center center;
+    }
+
+    .path-column:hover {
+      border-color: rgba(125, 243, 255, 0.7);
+      box-shadow: 0 0 24px rgba(0, 200, 255, 0.26), inset 0 0 16px rgba(125, 243, 255, 0.1);
+    }
+
+    .path-column.locked {
+      background: rgba(20, 70, 92, 0.78);
+      border-color: rgba(125, 243, 255, 0.32);
+    }
+
+    .six-paths-layer.bursting {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+
+    .path-title {
+      font-family: 'ZhuanTi', 'LiSu', '隶书', 'SimSun', serif;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.95);
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 10px rgba(0, 220, 255, 0.35);
+      margin-right: 8px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .path-content {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 4px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-left: 2px;
+    }
+
+    .path-content:empty::before {
+      content: '拖入亡魂';
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.25);
+      letter-spacing: 0.08em;
+      margin: auto;
+    }
+
+    .path-column.locked .path-content:empty::before {
+      content: '暂无权限';
+    }
+
+    .path-column.drag-over {
+      border-color: rgba(125, 243, 255, 0.95);
+      box-shadow: 0 0 32px rgba(0, 220, 255, 0.45), inset 0 0 22px rgba(125, 243, 255, 0.18);
+      transform: scale(1.06);
+    }
+
+    .path-column.locked.drag-over {
+      border-color: rgba(255, 80, 80, 0.6);
+      box-shadow: 0 0 20px rgba(255, 80, 80, 0.25);
+      transform: scale(1);
+    }
+
+    /* 横向矩形中，亡魂 chip 改为横向小条 */
+    .path-column .soul-chip.in-column {
+      width: auto;
+      min-width: 36px;
+      padding: 2px 5px;
+      font-size: 11px;
+    }
+
+    /* ===== 亡魂人名框 ===== */
+    .soul-chip {
+      width: 54px;
+      padding: 6px 2px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(125, 243, 255, 0.4);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 13px;
+      text-align: center;
+      letter-spacing: 0.04em;
+      cursor: grab;
+      user-select: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .soul-chip:hover {
+      border-color: rgba(125, 243, 255, 0.8);
+      box-shadow: 0 0 10px rgba(125, 243, 255, 0.25);
+      transform: translateY(-2px);
+    }
+
+    .soul-chip.dragging {
+      opacity: 0.35;
+      cursor: grabbing;
+    }
+
+    .soul-chip.in-column {
+      width: 100%;
+      margin: 0;
+      padding: 3px 1px;
+      font-size: 11px;
+    }
+
+    /* ===== 右下角人名池 ===== */
+    .soul-pool {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      width: 212px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 12px;
+      background: rgba(10, 12, 22, 0.55);
+      border: 1px solid rgba(125, 243, 255, 0.12);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      pointer-events: auto;
+      z-index: 6;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .soul-pool.drag-over {
+      border-color: rgba(125, 243, 255, 0.7);
+      box-shadow: 0 0 22px rgba(0, 200, 255, 0.25);
+    }
+
+    /* ===== 星阵内外环 ===== */
+    .array-inner-circle,
+    .array-outer-circle {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 3;
+      will-change: transform, opacity;
+      animation: circle-fade-in 1.2s ease 0.3s forwards;
+    }
+
+    .array-inner-circle {
+      width: 180px;
+      height: 180px;
+      filter: drop-shadow(0 0 16px rgba(0, 240, 200, 0.65)) drop-shadow(0 0 40px rgba(0, 240, 200, 0.35));
+      box-shadow: 0 0 40px rgba(0, 240, 200, 0.35), 0 0 90px rgba(0, 240, 200, 0.15);
+      border-radius: 50%;
+    }
+
+    .array-outer-circle {
+      width: 460px;
+      height: 460px;
+      filter: drop-shadow(0 0 24px rgba(125, 243, 255, 0.55)) drop-shadow(0 0 60px rgba(125, 243, 255, 0.3));
+      box-shadow: 0 0 60px rgba(125, 243, 255, 0.3), 0 0 130px rgba(125, 243, 255, 0.12);
+      border-radius: 50%;
+    }
+
+    @keyframes circle-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .array-inner-circle.spinning {
+      animation: spin-fast 0.35s linear infinite;
+    }
+
+    .array-outer-circle.spinning {
+      animation: spin-reverse 4s linear infinite;
+    }
+
+    @keyframes spin-fast {
+      from { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+      to { transform: translate(-50%, -50%) rotate(360deg); opacity: 1; }
+    }
+
+    @keyframes spin-reverse {
+      from { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+      to { transform: translate(-50%, -50%) rotate(-360deg); opacity: 1; }
+    }
+
+    /* ===== 爆发白光层 ===== */
+    .white-burst-overlay {
+      position: absolute;
+      inset: 0;
+      background: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 8;
+      transition: opacity 0.2s ease;
+    }
+
+    .white-burst-overlay.active {
+      opacity: 0.92;
+      transition: opacity 5s ease-in;
+    }
+
+    /* ===== 终幕文字 ===== */
+    .ending-overlay {
+      position: absolute;
+      inset: 0;
+      background: #ffffff;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1.2s ease;
+    }
+
+    .ending-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .ending-text {
+      font-family: 'HuiwenMincho', 'SimSun', '宋体', serif;
+      font-size: 28px;
+      color: #000000;
+      letter-spacing: 2.4em;
+      text-indent: 2.4em;
+      white-space: nowrap;
+      opacity: 0;
+      transform: scale(0.92);
+      transition: letter-spacing 2.4s cubic-bezier(0.22, 1, 0.36, 1),
+                  text-indent 2.4s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 1.6s ease,
+                  transform 2.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .ending-text.show {
+      letter-spacing: 0.55em;
+      text-indent: 0.55em;
+      opacity: 1;
+      transform: scale(1);
+    }
+  </style>
+</head>
+<body>
+  <div class="workspace" id="workspace" aria-label="戮判城工作台">
+    <div class="ws-tabs">
+      <a class="ws-tab" href="dangan.html">
+        <span class="ws-tab-title">【档案台】</span>
+        <span class="ws-tab-desc">这里是死者的死法。但我并不知道他们是谁，也许应该到业镜台找到他们的死亡时的证物。</span>
+      </a>
+      <a class="ws-tab" href="yejing.html">
+        <span class="ws-tab-title">【业镜台】</span>
+        <span class="ws-tab-desc">这里会有死者死亡时，身上最可疑的物品。每件物品都有死者的供词。可以根据供词找到物品的主人，记录在档案中。</span>
+      </a>
+      <a class="ws-tab" href="lunhui.html" data-active="true">
+        <span class="ws-tab-title">【轮回轨】</span>
+        <span class="ws-tab-desc">裁决最终进行的地方。我需要将什么东西按顺序输入，才能启动轮回轨，让亡魂投生六道。</span>
+      </a>
+    </div>
+    <div class="ws-body">
+      <div class="ws-main">
+        <!-- 阶段一：11格圆环 -->
+        <div class="stage active" id="stage1">
+          <div class="wheel-wrapper">
+            <div class="wheel-ring" id="wheelRing11"></div>
+            <div class="wheel-inner-ring" id="wheelInnerRing"></div>
+          </div>
+          <div class="hint-text">在圆环中填入名字，点击内环加速外环旋转。顺序正确后再次点击内环启动轮回轨。</div>
+        </div>
+
+        <!-- 阶段二：轮回星芒粒子法阵 -->
+        <div class="stage" id="stage2">
+          <div class="array-container" id="arrayContainer">
+            <div class="array-loading" id="arrayLoading">
+              <div class="array-spinner"></div>
+              <div>正在编织轮回星芒阵法...</div>
+            </div>
+            <div class="array-countdown" id="arrayCountdown">5</div>
+
+            <!-- 内外双环（出场渐隐现，爆发时旋转） -->
+            <img class="array-outer-circle" id="arrayOuterCircle" src="assets/circle.png" alt="">
+            <img class="array-inner-circle" id="arrayInnerCircle" src="assets/in circle.png" alt="">
+
+            <!-- 爆发白光层 -->
+            <div class="white-burst-overlay" id="whiteBurstOverlay"></div>
+
+            <!-- 终幕文字 -->
+            <div class="ending-overlay" id="endingOverlay">
+              <div class="ending-text" id="endingText">迷时三界转　悟时轮回歇</div>
+            </div>
+
+            <div class="array-ui">
+              <header>
+                <div class="array-title">
+                  <h1>轮回星阵</h1>
+                  <p>六道裁决之所</p>
+                </div>
+                <div class="array-status" id="arrayStatus">
+                  <div class="array-status-dot" id="arrayStatusDot"></div>
+                  <span id="arrayStatusText">初始化中...</span>
+                  <button class="array-start-btn" id="arrayStartBtn" type="button">启动阵法</button>
+                </div>
+              </header>
+              <footer>
+                <div class="array-info">
+                  <strong>六道裁决：</strong><br>
+                  请决定亡魂的六道去向；剑指掐诀，启动阵法。
+                </div>
+              </footer>
+            </div>
+
+            <!-- 六道去向与人名池 -->
+            <div class="six-paths-layer" id="sixPathsLayer">
+              <div class="six-paths-ring" id="sixPathsRing"></div>
+              <div class="soul-pool" id="soulPool"></div>
+            </div>
+
+            <div class="array-canvas-wrap" id="arrayCanvasWrap"></div>
+            <video id="arrayWebcam" autoplay playsinline style="display:none;"></video>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 闪光遮罩 -->
+  <div class="flash-overlay" id="flashOverlay"></div>
+  <!-- 黑暗遮罩 -->
+  <div class="dark-overlay" id="darkOverlay">
+    <div class="dark-text" id="darkText">现在到了我来决定的时候。</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script>
+    const TARGET_ORDER = ['栗春', '一碗水', '张舜华', '方永强', '小黑', '王敬慈', '方来楠', '方田富', '林欢儿', '方广才', '方来顺'];
+    const SESSION_KEY_STAGE = 'lcpanorama_lunhui_session_stage';
+    const RADIUS_11 = 192;
+
+    /* ==================== 阶段一 ==================== */
+    const wheelRing11 = document.getElementById('wheelRing11');
+    const inputs11 = [];
+
+    for (let i = 0; i < 11; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'wheel-slot';
+      const inner = document.createElement('input');
+      inner.className = 'wheel-slot-inner';
+      inner.type = 'text';
+      inner.placeholder = '…';
+      inner.autocomplete = 'off';
+      inner.spellcheck = false;
+      slot.appendChild(inner);
+      wheelRing11.appendChild(slot);
+      inputs11.push(inner);
+
+      const angle = (i / 11) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.cos(angle) * RADIUS_11;
+      const y = Math.sin(angle) * RADIUS_11;
+      slot.style.transform = `translate(${x}px, ${y}px)`;
+    }
+
+    let autoRotationOuter = 0;
+    let autoRotationInner = 0;
+    let boostSpeed = 0;
+    let boostRotation = 0;
+    let stage1Ready = false;
+    let animatingSuccess = false;
+    let isTyping = false;
+    const wheelInnerRing = document.getElementById('wheelInnerRing');
+
+    const BASE_SPEED_OUTER = 0.12;
+    const BASE_SPEED_INNER = 0.04;
+    const BOOST_ACCEL = 0.9;
+    const BOOST_DECAY = 0.015;
+
+    function tickWheel() {
+      if (animatingSuccess) return;
+      if (!isTyping) {
+        autoRotationOuter += BASE_SPEED_OUTER;
+        boostRotation += boostSpeed;
+        boostSpeed = Math.max(0, boostSpeed - BOOST_DECAY);
+      }
+      autoRotationInner += BASE_SPEED_INNER;
+      const outerTotal = autoRotationOuter + boostRotation;
+      const innerTotal = autoRotationInner;
+
+      wheelRing11.style.transform = `rotate(${outerTotal}deg)`;
+      wheelInnerRing.style.transform = `rotate(${innerTotal}deg)`;
+      inputs11.forEach(inp => {
+        inp.style.transform = `rotate(-${outerTotal}deg)`;
+      });
+      requestAnimationFrame(tickWheel);
+    }
+    requestAnimationFrame(tickWheel);
+
+    wheelInnerRing.addEventListener('click', () => {
+      if (stage1Ready) {
+        startStage1Animation();
+        return;
+      }
+      boostSpeed += BOOST_ACCEL;
+    });
+
+    /* ===== 开发者快捷通道 ===== */
+    function showDevPasswordPopup() {
+      const existing = document.querySelector('.password-popup');
+      if (existing) existing.remove();
+
+      const popup = document.createElement('div');
+      popup.className = 'password-popup';
+      popup.innerHTML = `
+        <div class="password-hint">提示：高越口头禅</div>
+        <div class="password-row">
+          <input type="text" class="password-input" placeholder="输入密码" />
+          <button class="password-btn">确认</button>
+        </div>
+        <div class="password-error"></div>
+      `;
+      document.body.appendChild(popup);
+
+      const input = popup.querySelector('.password-input');
+      const btn = popup.querySelector('.password-btn');
+      const error = popup.querySelector('.password-error');
+
+      const check = () => {
+        if (input.value.trim() === 'hchcsss') {
+          popup.remove();
+          // 自动填入正确顺序并启动
+          inputs11.forEach((inp, i) => {
+            inp.value = TARGET_ORDER[i];
+          });
+          checkStage1();
+          setTimeout(() => {
+            if (stage1Ready) startStage1Animation();
+          }, 300);
+        } else {
+          error.textContent = '密码错误';
+          input.value = '';
+          input.focus();
+        }
+      };
+
+      btn.addEventListener('click', check);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') check();
+        if (e.key === 'Escape') popup.remove();
+      });
+      input.focus();
+
+      // 点击弹窗外部关闭
+      const closeOnClickOutside = (e) => {
+        if (!popup.contains(e.target)) {
+          popup.remove();
+          document.removeEventListener('click', closeOnClickOutside);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeOnClickOutside), 0);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'm' || e.key === 'M') {
+        // 仅在第一阶段且未开始动画时生效
+        if (!animatingSuccess && document.getElementById('stage1').classList.contains('active')) {
+          showDevPasswordPopup();
+        }
+      }
+    });
+
+    function checkStage1() {
+      const values = inputs11.map(inp => inp.value.trim());
+      if (values.some(v => !v)) {
+        stage1Ready = false;
+        updateReadyState();
+        return;
+      }
+
+      const n = TARGET_ORDER.length;
+
+      // 正向循环移位匹配
+      for (let shift = 0; shift < n; shift++) {
+        let ok = true;
+        for (let i = 0; i < n; i++) {
+          if (values[i] !== TARGET_ORDER[(shift + i) % n]) { ok = false; break; }
+        }
+        if (ok) { stage1Ready = true; updateReadyState(); return; }
+      }
+
+      // 反向循环移位匹配
+      const rev = [...TARGET_ORDER].reverse();
+      for (let shift = 0; shift < n; shift++) {
+        let ok = true;
+        for (let i = 0; i < n; i++) {
+          if (values[i] !== rev[(shift + i) % n]) { ok = false; break; }
+        }
+        if (ok) { stage1Ready = true; updateReadyState(); return; }
+      }
+
+      stage1Ready = false;
+      updateReadyState();
+    }
+
+    function updateReadyState() {
+      if (stage1Ready) {
+        wheelInnerRing.style.filter = 'drop-shadow(0 0 28px rgba(255, 200, 80, 0.55))';
+        wheelInnerRing.style.transition = 'filter 0.4s ease';
+      } else {
+        wheelInnerRing.style.filter = '';
+        wheelInnerRing.style.transition = '';
+      }
+    }
+
+    inputs11.forEach(inp => {
+      inp.addEventListener('input', checkStage1);
+      inp.addEventListener('focus', () => { isTyping = true; });
+      inp.addEventListener('blur', () => { isTyping = false; checkStage1(); });
+    });
+
+    function startStage1Animation() {
+      animatingSuccess = true;
+      wheelInnerRing.style.pointerEvents = 'none';
+      inputs11.forEach(inp => {
+        inp.disabled = true;
+        inp.style.transition = 'opacity 0.3s ease';
+        inp.style.opacity = '0';
+      });
+
+      const startRotOuter = autoRotationOuter + boostRotation;
+      const startRotInner = autoRotationInner;
+      const startTime = performance.now();
+      const duration = 2000;
+
+      function successFrame(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const rotOuter = startRotOuter + ease * 1080;
+        const rotInner = startRotInner + ease * 360;
+        const scale = 1 + ease * 5;
+        const opacity = t > 0.8 ? 1 - (t - 0.8) / 0.2 : 1;
+
+        wheelRing11.style.transform = `rotate(${rotOuter}deg) scale(${scale})`;
+        wheelRing11.style.opacity = opacity;
+        wheelInnerRing.style.transform = `rotate(${rotInner}deg) scale(${scale})`;
+        wheelInnerRing.style.opacity = opacity;
+
+        if (t < 1) {
+          requestAnimationFrame(successFrame);
+        } else {
+          wheelRing11.style.display = 'none';
+          wheelInnerRing.style.display = 'none';
+        }
+      }
+      requestAnimationFrame(successFrame);
+
+      document.querySelector('#stage1 .hint-text').style.display = 'none';
+      document.getElementById('flashOverlay').classList.add('animating');
+
+      setTimeout(() => {
+        document.getElementById('darkOverlay').classList.add('show');
+      }, 1400);
+
+      setTimeout(() => {
+        enterStage2();
+      }, 4200);
+    }
+
+    /* ==================== 黑暗过渡 → 阶段二 ==================== */
+    function enterStage2() {
+      const dark = document.getElementById('darkOverlay');
+      dark.style.transition = 'opacity 1s ease';
+      dark.style.opacity = '0';
+
+      setTimeout(() => {
+        dark.classList.remove('show');
+        dark.style.opacity = '';
+        dark.style.pointerEvents = 'none';
+      }, 1000);
+
+      document.getElementById('stage1').classList.remove('active');
+      document.getElementById('stage2').classList.add('active');
+
+      initArraySystem();
+      sessionStorage.setItem(SESSION_KEY_STAGE, '2');
+    }
+
+    /* ==================== 阶段二：十万粒子轮回星阵 ==================== */
+    const PARTICLE_COUNT = 100000;
+    let arrayScene, arrayCamera, arrayRenderer, arrayParticles;
+    let arrayPositions, arrayColors, arrayCustomData, arrayDefaultPositions;
+    let arrayActive = false;
+    let arrayAnimating = false;
+    let arraySystemState = 'IDLE';
+    let arrayLastStateChangeTime = 0;
+    let mpGestureActive = false;
+    let fallbackActive = false;
+    let arrayCameraUtils = null;
+
+    const arrayParams = {
+      color1: '#7df3ff',
+      color2: '#00ffcc',
+      color3: '#ffcc00',
+      particleSize: 0.035,
+      maxScaleUp: 1.5,
+      baseRotationSpeed: 0.06,
+      morphSpeed: 0.07
+    };
+
+    const R1 = 2.0;
+    const rectSide = R1 * 2 * 1.1;
+    const R2 = Math.sqrt(2) * (rectSide / 2);
+    const R3 = R2 * 1.4;
+    const rSmall = 0.4;
+
+    const quotaCircle1 = Math.floor(PARTICLE_COUNT * 0.15);
+    const quotaRects   = Math.floor(PARTICLE_COUNT * 0.35);
+    const quotaCircle2 = Math.floor(PARTICLE_COUNT * 0.20);
+    const quotaCircle3 = Math.floor(PARTICLE_COUNT * 0.15);
+    const quotaSmallCircles = PARTICLE_COUNT - (quotaCircle1 + quotaRects + quotaCircle2 + quotaCircle3);
+
+    /* ---------------- 六道裁决 UI ---------------- */
+    const SIX_PATHS = [
+      { key: 'tian', name: '天', locked: true },
+      { key: 'asura', name: '阿修罗', locked: false },
+      { key: 'ren', name: '人', locked: false },
+      { key: 'chusheng', name: '畜生', locked: false },
+      { key: 'egui', name: '恶鬼', locked: false },
+      { key: 'diyu', name: '地狱', locked: false }
+    ];
+
+    const SOUL_NAMES = ['栗春', '方永强', '小黑', '王敬慈', '方来楠', '方田富', '林欢儿', '方广才', '方来顺'];
+
+    function initSixPathsUI() {
+      const ring = document.getElementById('sixPathsRing');
+      const pool = document.getElementById('soulPool');
+      if (!ring || !pool) return;
+
+      ring.innerHTML = '';
+      pool.innerHTML = '';
+
+      SIX_PATHS.forEach((p, i) => {
+        const col = document.createElement('div');
+        col.className = 'path-column' + (p.locked ? ' locked' : '');
+        col.dataset.path = p.key;
+        col.dataset.locked = p.locked ? '1' : '0';
+        col.innerHTML = `<div class="path-title">${p.name}</div><div class="path-content"></div>`;
+        col.dataset.angle = (i * 60).toString();
+
+        if (!p.locked) {
+          col.addEventListener('dragover', handlePathDragOver);
+          col.addEventListener('dragleave', handlePathDragLeave);
+          col.addEventListener('drop', handlePathDrop);
+        }
+        ring.appendChild(col);
+      });
+
+      SOUL_NAMES.forEach(name => {
+        pool.appendChild(createSoulChip(name));
+      });
+
+      pool.addEventListener('dragover', handlePathDragOver);
+      pool.addEventListener('dragleave', handlePathDragLeave);
+      pool.addEventListener('drop', handlePoolDrop);
+
+      positionSixPaths();
+    }
+
+    function positionSixPaths() {
+      const container = document.getElementById('arrayContainer');
+      if (!container) return;
+      const radius = Math.min(container.clientWidth, container.clientHeight) * 0.50;
+      document.querySelectorAll('.path-column').forEach(col => {
+        const angle = parseFloat(col.dataset.angle || '0');
+        col.style.transform = `rotate(${angle}deg) translate(${radius}px) rotate(-${angle}deg)`;
+      });
+    }
+
+    function createSoulChip(name) {
+      const chip = document.createElement('div');
+      chip.className = 'soul-chip';
+      chip.textContent = name;
+      chip.draggable = true;
+      chip.dataset.name = name;
+      chip.addEventListener('dragstart', handleSoulDragStart);
+      chip.addEventListener('dragend', handleSoulDragEnd);
+      return chip;
+    }
+
+    function handleSoulDragStart(e) {
+      e.dataTransfer.setData('text/plain', e.target.dataset.name);
+      e.dataTransfer.effectAllowed = 'move';
+      e.target.classList.add('dragging');
+    }
+
+    function handleSoulDragEnd(e) {
+      e.target.classList.remove('dragging');
+    }
+
+    function handlePathDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function handlePathDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handlePathDrop(e) {
+      e.preventDefault();
+      const col = e.currentTarget;
+      col.classList.remove('drag-over');
+      if (col.dataset.locked === '1') return;
+
+      const dragging = document.querySelector('.soul-chip.dragging');
+      if (!dragging) return;
+
+      const content = col.querySelector('.path-content');
+      content.appendChild(dragging);
+      dragging.classList.add('in-column');
+    }
+
+    function handlePoolDrop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      const dragging = document.querySelector('.soul-chip.dragging');
+      if (!dragging) return;
+      e.currentTarget.appendChild(dragging);
+      dragging.classList.remove('in-column');
+    }
+
+    function onArrayWindowResize() {
+      resizeArrayRenderer();
+      positionSixPaths();
+    }
+
+    function initArrayStartButton() {
+      const btn = document.getElementById('arrayStartBtn');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        if (arraySystemState === 'IDLE' || arraySystemState === 'CHARGING') {
+          arraySystemState = 'BURST';
+          arrayLastStateChangeTime = performance.now();
+          updateArrayStatusUI();
+          console.log('[Lunhui] Start button clicked, entering BURST');
+        }
+      });
+    }
+
+    function showArrayCircles() {
+      // 短暂延迟确保浏览器已计算初始 opacity:0，transition 才会生效
+      setTimeout(() => {
+        const inner = document.getElementById('arrayInnerCircle');
+        const outer = document.getElementById('arrayOuterCircle');
+        if (inner) inner.classList.add('visible');
+        if (outer) outer.classList.add('visible');
+      }, 50);
+    }
+
+    function hideArrayCircles() {
+      const inner = document.getElementById('arrayInnerCircle');
+      const outer = document.getElementById('arrayOuterCircle');
+      if (inner) {
+        inner.classList.remove('visible', 'spinning');
+        inner.style.animation = '';
+      }
+      if (outer) {
+        outer.classList.remove('visible', 'spinning');
+        outer.style.animation = '';
+      }
+    }
+
+    function stopArrayCamera() {
+      if (arrayCameraUtils && typeof arrayCameraUtils.stop === 'function') {
+        try {
+          arrayCameraUtils.stop();
+        } catch (e) {
+          console.warn('停止摄像头失败', e);
+        }
+      }
+      const video = document.getElementById('arrayWebcam');
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+    }
+
+    function startArrayBurstEffects() {
+      const layer = document.getElementById('sixPathsLayer');
+      if (layer) layer.classList.add('bursting');
+
+      const inner = document.getElementById('arrayInnerCircle');
+      const outer = document.getElementById('arrayOuterCircle');
+      if (inner) {
+        inner.classList.add('spinning');
+        inner.style.animation = 'spin-fast 0.35s linear infinite';
+      }
+      if (outer) {
+        outer.classList.add('spinning');
+        outer.style.animation = 'spin-reverse 4s linear infinite';
+      }
+
+      const white = document.getElementById('whiteBurstOverlay');
+      if (white) {
+        white.classList.add('active');
+      }
+
+      // 白屏爆发时停止摄像头识别
+      stopArrayCamera();
+
+      console.log('[Lunhui] Burst effects started', { inner: !!inner, outer: !!outer });
+    }
+
+    function showEndingOverlay() {
+      const canvasWrap = document.getElementById('arrayCanvasWrap');
+      if (canvasWrap) canvasWrap.style.opacity = '0';
+
+      hideArrayCircles();
+
+      const white = document.getElementById('whiteBurstOverlay');
+      if (white) {
+        white.style.opacity = '1';
+        white.classList.remove('active');
+      }
+
+      const ending = document.getElementById('endingOverlay');
+      const text = document.getElementById('endingText');
+      if (ending) ending.classList.add('show');
+      if (text) {
+        // 强制重绘后触发动画
+        void text.offsetWidth;
+        text.classList.add('show');
+      }
+
+      arrayActive = false;
+    }
+
+    function initArraySystem() {
+      if (arrayAnimating) {
+        arrayActive = true;
+        arraySystemState = 'IDLE';
+        arrayLastStateChangeTime = performance.now();
+        updateArrayStatusUI();
+        resizeArrayRenderer();
+        return;
+      }
+
+      initArrayThree();
+      initSixPathsUI();
+      initArrayInputFallback();
+      initArrayMediaPipe();
+      initArrayStartButton();
+      animateArray();
+      arrayAnimating = true;
+      arrayActive = true;
+      arraySystemState = 'IDLE';
+      arrayLastStateChangeTime = performance.now();
+      updateArrayStatusUI();
+      requestAnimationFrame(resizeArrayRenderer);
+      showArrayCircles();
+    }
+
+    function initArrayThree() {
+      const container = document.getElementById('arrayCanvasWrap');
+      const width = container.clientWidth || 1;
+      const height = container.clientHeight || 1;
+
+      arrayScene = new THREE.Scene();
+      arrayScene.fog = new THREE.FogExp2(0x020204, 0.01);
+
+      arrayCamera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
+      arrayCamera.position.set(0, 0, 12);
+
+      arrayRenderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      arrayRenderer.setSize(width, height);
+      arrayRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      arrayRenderer.setClearColor(arrayScene.fog.color);
+      container.appendChild(arrayRenderer.domElement);
+
+      const geometry = new THREE.BufferGeometry();
+      arrayPositions = new Float32Array(PARTICLE_COUNT * 3);
+      arrayColors = new Float32Array(PARTICLE_COUNT * 3);
+      arrayDefaultPositions = new Float32Array(PARTICLE_COUNT * 3);
+      arrayCustomData = new Float32Array(PARTICLE_COUNT * 4);
+
+      buildMagicArray();
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(arrayPositions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(arrayColors, 3));
+
+      const material = new THREE.PointsMaterial({
+        size: arrayParams.particleSize,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        map: createGlowTexture()
+      });
+
+      arrayParticles = new THREE.Points(geometry, material);
+      arrayScene.add(arrayParticles);
+
+      window.addEventListener('resize', onArrayWindowResize);
+    }
+
+    function buildMagicArray() {
+      let pIndex = 0;
+      const c1 = new THREE.Color(arrayParams.color1);
+      const c2 = new THREE.Color(arrayParams.color2);
+      const c3 = new THREE.Color(arrayParams.color3);
+
+      const jitter = () => (Math.random() - 0.5) * 0.022;
+
+      for (let i = 0; i < quotaCircle1; i++) {
+        const angle = (i / quotaCircle1) * Math.PI * 2;
+        const x = Math.cos(angle) * R1 + jitter();
+        const y = Math.sin(angle) * R1 + jitter();
+        saveArrayParticle(pIndex++, x, y, angle, R1, 1, c1);
+      }
+
+      const particlesPerRect = Math.floor(quotaRects / 4);
+      const segmentsPerRect = Math.floor(particlesPerRect / 4);
+      const halfSide = rectSide / 2;
+      for (let r = 0; r < 4; r++) {
+        const rectAngleOffset = (r * Math.PI / 4) / 2;
+        let rectPoints = [];
+        for(let s=0; s<4; s++) {
+          for(let p=0; p<segmentsPerRect; p++) {
+            const t = p / segmentsPerRect;
+            let x, y;
+            if(s === 0) { x = -halfSide + rectSide*t; y = halfSide; }
+            else if(s === 1) { x = halfSide; y = halfSide - rectSide*t; }
+            else if(s === 2) { x = halfSide - rectSide*t; y = -halfSide; }
+            else { x = -halfSide; y = -halfSide + rectSide*t; }
+            rectPoints.push({x: x + jitter(), y: y + jitter()});
+          }
+        }
+        rectPoints.forEach(pt => {
+          if (pIndex >= PARTICLE_COUNT) return;
+          const rx = pt.x * Math.cos(rectAngleOffset) - pt.y * Math.sin(rectAngleOffset);
+          const ry = pt.x * Math.sin(rectAngleOffset) + pt.y * Math.cos(rectAngleOffset);
+          const angle = Math.atan2(ry, rx);
+          const radius = Math.hypot(rx, ry);
+          saveArrayParticle(pIndex++, rx, ry, angle, radius, 2, c2);
+        });
+      }
+
+      for (let i = 0; i < quotaCircle2; i++) {
+        const angle = (i / quotaCircle2) * Math.PI * 2;
+        const x = Math.cos(angle) * R2 + jitter();
+        const y = Math.sin(angle) * R2 + jitter();
+        saveArrayParticle(pIndex++, x, y, angle, R2, 3, c2);
+      }
+
+      for (let i = 0; i < quotaCircle3; i++) {
+        const angle = (i / quotaCircle3) * Math.PI * 2;
+        const x = Math.cos(angle) * R3 + jitter();
+        const y = Math.sin(angle) * R3 + jitter();
+        saveArrayParticle(pIndex++, x, y, angle, R3, 4, c3);
+      }
+
+      const smallCircleCount = 6;
+      const particlesPerSmallCircle = Math.floor(quotaSmallCircles / smallCircleCount);
+      for (let c = 0; c < smallCircleCount; c++) {
+        const centerAngle = (c / smallCircleCount) * Math.PI * 2;
+        const cx = Math.cos(centerAngle) * R3;
+        const cy = Math.sin(centerAngle) * R3;
+        for (let i = 0; i < particlesPerSmallCircle; i++) {
+          if (pIndex >= PARTICLE_COUNT) break;
+          const angle = (i / particlesPerSmallCircle) * Math.PI * 2;
+          const x = cx + Math.cos(angle) * rSmall + jitter();
+          const y = cy + Math.sin(angle) * rSmall + jitter();
+          const finalAngle = Math.atan2(y, x);
+          const finalRadius = Math.hypot(x, y);
+          saveArrayParticle(pIndex++, x, y, finalAngle, finalRadius, 5, c3);
+        }
+      }
+
+      while(pIndex < PARTICLE_COUNT) {
+        saveArrayParticle(pIndex, arrayPositions[0], arrayPositions[1], arrayCustomData[1], arrayCustomData[0], 1, c1);
+        pIndex++;
+      }
+    }
+
+    function saveArrayParticle(idx, x, y, angle, radius, type, colorObj) {
+      const i3 = idx * 3; const i4 = idx * 4;
+      arrayPositions[i3] = x; arrayPositions[i3 + 1] = y; arrayPositions[i3 + 2] = 0;
+      arrayDefaultPositions[i3] = x; arrayDefaultPositions[i3 + 1] = y; arrayDefaultPositions[i3 + 2] = 0;
+
+      const bFactor = 0.55 + Math.random() * 0.45;
+      arrayColors[i3] = colorObj.r * bFactor; arrayColors[i3 + 1] = colorObj.g * bFactor; arrayColors[i3 + 2] = colorObj.b * bFactor;
+
+      arrayCustomData[i4] = radius;
+      arrayCustomData[i4 + 1] = angle;
+      arrayCustomData[i4 + 2] = type;
+      arrayCustomData[i4 + 3] = 0.65 + Math.random() * 0.7;
+    }
+
+    function createGlowTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.2, 'rgba(255,255,255,0.85)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.15)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    function isTriggerActive() {
+      return mpGestureActive || fallbackActive;
+    }
+
+    function updateArrayStatusUI() {
+      const statusDot = document.getElementById('arrayStatusDot');
+      const statusText = document.getElementById('arrayStatusText');
+      if (!statusDot || !statusText) return;
+      if (arraySystemState === 'IDLE') {
+        statusDot.className = 'array-status-dot active';
+        statusText.innerText = '请决定亡魂的六道去向；剑指掐诀，启动阵法';
+      } else if (arraySystemState === 'CHARGING') {
+        statusDot.className = 'array-status-dot charging';
+      } else if (arraySystemState === 'BURST') {
+        statusDot.className = 'array-status-dot active';
+      } else if (arraySystemState === 'ENDING') {
+        statusDot.className = 'array-status-dot active';
+        statusText.innerText = '裁决已定';
+      }
+    }
+
+    function updateArraySystemState() {
+      const now = performance.now();
+      const elapsed = (now - arrayLastStateChangeTime) / 1000;
+      const countdownEl = document.getElementById('arrayCountdown');
+      const statusText = document.getElementById('arrayStatusText');
+      const active = isTriggerActive();
+
+      if (arraySystemState === 'IDLE') {
+        countdownEl.style.opacity = '0';
+        if (active) {
+          arraySystemState = 'CHARGING';
+          arrayLastStateChangeTime = now;
+          updateArrayStatusUI();
+        } else {
+          if (statusText) statusText.innerText = '请决定亡魂的六道去向；剑指掐诀，启动阵法';
+        }
+      }
+      else if (arraySystemState === 'CHARGING') {
+        const remaining = Math.max(0, 5 - elapsed);
+        countdownEl.innerText = Math.ceil(remaining);
+        countdownEl.style.opacity = '1';
+        if (statusText) statusText.innerText = `剑指检测到！阵法充能倒计时: ${Math.ceil(remaining)}s`;
+
+        if (!active) {
+          arraySystemState = 'IDLE';
+          arrayLastStateChangeTime = now;
+          countdownEl.style.opacity = '0';
+          updateArrayStatusUI();
+        } else if (remaining <= 0) {
+          arraySystemState = 'BURST';
+          arrayLastStateChangeTime = now;
+          countdownEl.style.opacity = '0';
+          updateArrayStatusUI();
+        }
+      }
+      else if (arraySystemState === 'BURST') {
+        countdownEl.style.opacity = '0';
+        if (statusText) statusText.innerText = '阵法启动！十万粒子洪流暴鸣扩张';
+
+        // 爆发第 0 帧触发内外环旋转与白光
+        if (elapsed < 0.05) {
+          startArrayBurstEffects();
+        }
+
+        if (elapsed > 6.0) {
+          arraySystemState = 'ENDING';
+          arrayLastStateChangeTime = now;
+          updateArrayStatusUI();
+          showEndingOverlay();
+        }
+      }
+      else if (arraySystemState === 'ENDING') {
+        // 终幕保持，动画循环可由 showEndingOverlay 停止
+      }
+    }
+
+    function animateArray() {
+      requestAnimationFrame(animateArray);
+      if (!arrayActive) return;
+
+      updateArraySystemState();
+
+      const posAttr = arrayParticles.geometry.attributes.position;
+      const currentArray = posAttr.array;
+      const now = performance.now();
+      const stateElapsed = (now - arrayLastStateChangeTime) / 1000;
+
+      arrayParticles.rotation.set(0, 0, 0);
+
+      const mSpeed = arrayParams.morphSpeed;
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const i3 = i * 3; const i4 = i * 4;
+        const origRadius = arrayCustomData[i4];
+        let angle = arrayCustomData[i4 + 1];
+        const type = arrayCustomData[i4 + 2];
+        const speedFactor = arrayCustomData[i4 + 3];
+
+        let targetX, targetY;
+
+        if (arraySystemState === 'IDLE') {
+          targetX = arrayDefaultPositions[i3];
+          targetY = arrayDefaultPositions[i3 + 1];
+          currentArray[i3]     += (targetX - currentArray[i3]) * mSpeed;
+          currentArray[i3 + 1] += (targetY - currentArray[i3 + 1]) * mSpeed;
+          currentArray[i3 + 2] += (0 - currentArray[i3 + 2]) * mSpeed;
+        }
+        else if (arraySystemState === 'CHARGING') {
+          const chargeProgress = Math.min(1.0, stateElapsed / 5.0);
+          const packRadius = (i % 150) / 150 * (R1 * 0.42);
+          const spinAngle = angle + chargeProgress * 3.8 * speedFactor;
+
+          targetX = Math.cos(spinAngle) * packRadius;
+          targetY = Math.sin(spinAngle) * packRadius;
+
+          currentArray[i3]     += (targetX - currentArray[i3]) * (mSpeed * 0.7);
+          currentArray[i3 + 1] += (targetY - currentArray[i3 + 1]) * (mSpeed * 0.7);
+          currentArray[i3 + 2] += (((Math.random() - 0.5) * 0.04) - currentArray[i3 + 2]) * mSpeed;
+        }
+        else if (arraySystemState === 'BURST') {
+          let currentScale = 1.0;
+          if (stateElapsed < 1.5) {
+            currentScale = 1.0 + (arrayParams.maxScaleUp - 1.0) * Math.sin((stateElapsed / 1.5) * Math.PI / 2);
+          } else {
+            const t = Math.min(1.0, (stateElapsed - 1.5) / 4.5);
+            currentScale = arrayParams.maxScaleUp - (arrayParams.maxScaleUp - 1.15) * t;
+          }
+
+          const rotVelocity = arrayParams.baseRotationSpeed * Math.exp(-stateElapsed * 0.12);
+
+          if (type === 1) {
+            angle += rotVelocity * 1.6 * speedFactor;
+          } else if (type === 2) {
+            angle -= rotVelocity * 1.25 * speedFactor;
+          } else if (type === 3) {
+            angle += rotVelocity * 0.85 * speedFactor;
+          } else if (type === 4 || type === 5) {
+            angle -= rotVelocity * 0.45 * speedFactor;
+          }
+          arrayCustomData[i4 + 1] = angle;
+
+          const dynamicRadius = origRadius * currentScale;
+          targetX = Math.cos(angle) * dynamicRadius;
+          targetY = Math.sin(angle) * dynamicRadius;
+
+          currentArray[i3]     += (targetX - currentArray[i3]) * 0.24;
+          currentArray[i3 + 1] += (targetY - currentArray[i3 + 1]) * 0.24;
+          currentArray[i3 + 2] += (0 - currentArray[i3 + 2]) * 0.24;
+        }
+      }
+
+      posAttr.needsUpdate = true;
+      arrayRenderer.render(arrayScene, arrayCamera);
+    }
+
+    function resizeArrayRenderer() {
+      if (!arrayCamera || !arrayRenderer) return;
+      const container = document.getElementById('arrayCanvasWrap');
+      const width = container.clientWidth || 1;
+      const height = container.clientHeight || 1;
+      arrayCamera.aspect = width / height;
+      arrayCamera.updateProjectionMatrix();
+      arrayRenderer.setSize(width, height);
+    }
+
+    function initArrayInputFallback() {
+      // 仅在粒子画布上长按/触摸才触发阵法充能，避免与拖拽六道 UI 冲突
+      const el = document.getElementById('arrayCanvasWrap');
+      const start = (e) => {
+        if (e.target.closest('.six-paths-layer') || e.target.closest('.array-ui')) return;
+        fallbackActive = true;
+      };
+      const end = () => { fallbackActive = false; };
+      el.addEventListener('mousedown', start);
+      el.addEventListener('touchstart', start, { passive: true });
+      window.addEventListener('mouseup', end);
+      window.addEventListener('touchend', end);
+    }
+
+    function initArrayMediaPipe() {
+      const videoElement = document.getElementById('arrayWebcam');
+      const loadingScreen = document.getElementById('arrayLoading');
+
+      const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.55,
+        minTrackingConfidence: 0.60
+      });
+
+      let loadingHidden = false;
+      const hideLoading = () => {
+        if (loadingHidden) return;
+        loadingHidden = true;
+        if (loadingScreen) {
+          loadingScreen.style.opacity = '0';
+          setTimeout(() => { if (loadingScreen) loadingScreen.style.display = 'none'; }, 500);
+        }
+      };
+
+      hands.onResults((results) => {
+        hideLoading();
+
+        let globalGestureSuccess = false;
+
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+          for (let h = 0; h < results.multiHandLandmarks.length; h++) {
+            const lm = results.multiHandLandmarks[h];
+
+            // 剑指：食指、中指伸直并拢；无名指、小指弯曲
+            const isIndexExtended = lm[8].y < lm[6].y && lm[7].y < lm[5].y;
+            const isMiddleExtended = lm[12].y < lm[10].y && lm[11].y < lm[9].y;
+            const isRingCurled = lm[16].y > lm[14].y;
+            const isPinkyCurled = lm[20].y > lm[18].y;
+
+            if (isIndexExtended && isMiddleExtended && isRingCurled && isPinkyCurled) {
+              globalGestureSuccess = true;
+            }
+          }
+        }
+
+        mpGestureActive = globalGestureSuccess;
+      });
+
+      try {
+        arrayCameraUtils = new Camera(videoElement, {
+          onFrame: async () => {
+            await hands.send({ image: videoElement });
+          },
+          width: 320,
+          height: 240
+        });
+        arrayCameraUtils.start();
+      } catch (e) {
+        console.warn('MediaPipe 摄像头启动失败，可使用鼠标/触摸触发。', e);
+        hideLoading();
+      }
+
+      // 若摄像头权限被拒绝或超时，3 秒后自动隐藏加载层
+      setTimeout(hideLoading, 3000);
+    }
+
+    // 同一会话内已进入阶段二则恢复（刷新或重新登录后清空，回到阶段一）
+    const savedStage = sessionStorage.getItem(SESSION_KEY_STAGE);
+    if (savedStage === '2') {
+      document.getElementById('stage1').classList.remove('active');
+      document.getElementById('stage2').classList.add('active');
+      initArraySystem();
+    }
+  </script>
+</body>
+</html>
