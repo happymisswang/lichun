@@ -1395,15 +1395,21 @@
       positionSixPaths();
     }
 
+    function enterBurstState(source = 'unknown') {
+      if (arraySystemState === 'BURST' || arraySystemState === 'ENDING') return;
+      arraySystemState = 'BURST';
+      arrayLastStateChangeTime = performance.now();
+      updateArrayStatusUI();
+      startArrayBurstEffects();
+      console.log('[Lunhui] Entering BURST from:', source);
+    }
+
     function initArrayStartButton() {
       const btn = document.getElementById('arrayStartBtn');
       if (!btn) return;
       btn.addEventListener('click', () => {
         if (arraySystemState === 'IDLE' || arraySystemState === 'CHARGING') {
-          arraySystemState = 'BURST';
-          arrayLastStateChangeTime = performance.now();
-          updateArrayStatusUI();
-          console.log('[Lunhui] Start button clicked, entering BURST');
+          enterBurstState('button');
         }
       });
     }
@@ -1721,20 +1727,13 @@
           countdownEl.style.opacity = '0';
           updateArrayStatusUI();
         } else if (remaining <= 0) {
-          arraySystemState = 'BURST';
-          arrayLastStateChangeTime = now;
+          enterBurstState('gesture');
           countdownEl.style.opacity = '0';
-          updateArrayStatusUI();
         }
       }
       else if (arraySystemState === 'BURST') {
         countdownEl.style.opacity = '0';
         if (statusText) statusText.innerText = '阵法启动！十万粒子洪流暴鸣扩张';
-
-        // 爆发第 0 帧触发内外环旋转与白光
-        if (elapsed < 0.05) {
-          startArrayBurstEffects();
-        }
 
         if (elapsed > 6.0) {
           arraySystemState = 'ENDING';
